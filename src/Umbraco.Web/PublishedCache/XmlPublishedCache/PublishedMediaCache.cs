@@ -750,7 +750,24 @@ namespace Umbraco.Web.PublishedCache.XmlPublishedCache
                     }
                 }
 
-                return DateTime.Parse(val);
+                try
+                {
+                    return DateTime.Parse(val);
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        //try with invariant culture
+                        return DateTime.ParseExact(val, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    catch (Exception)
+                    {
+                        //it failed again, let's throw the exception
+                        throw new Exception("PublishedMediaCache.ParseDateTimeValue - Failed to parse :" + val + "", ex);
+                    }
+
+                }
             }
 
             /// <summary>
