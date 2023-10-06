@@ -137,7 +137,7 @@ public class BackOfficeWebAssets
 
         _runtimeMinifier.CreateCssBundle(
             UmbracoCssBundleName,
-            BundlingOptions.OptimizedAndComposite,
+            BundlingOptions.NotOptimizedNotComposite,
             FormatPaths(
                 GetStylesheetsForBackOffice(cssAssets)));
 
