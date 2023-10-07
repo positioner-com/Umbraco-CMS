@@ -89,7 +89,7 @@ public class BackOfficeWebAssets
 
         _runtimeMinifier.CreateJsBundle(
             UmbracoCoreJsBundleName,
-            BundlingOptions.NotOptimizedAndComposite,
+            BundlingOptions.NotOptimizedNotComposite,
             FormatPaths(GetScriptsForBackOfficeCore()));
 
         // get the property editor assets
@@ -114,7 +114,7 @@ public class BackOfficeWebAssets
 
         _runtimeMinifier.CreateJsBundle(
             UmbracoExtensionsJsBundleName,
-            BundlingOptions.OptimizedAndComposite,
+            BundlingOptions.NotOptimizedNotComposite,
             FormatPaths(
                 GetScriptsForBackOfficeExtensions(jsAssets)));
 
