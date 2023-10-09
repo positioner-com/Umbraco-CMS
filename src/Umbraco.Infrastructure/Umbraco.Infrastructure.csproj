@@ -1,10 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Umbraco.Cms.Infrastructure</PackageId>
     <Title>Umbraco CMS - Infrastructure</Title>
     <Description>Contains the infrastructure assembly needed to run Umbraco CMS.</Description>
     <RootNamespace>Umbraco.Cms.Infrastructure</RootNamespace>
-    <Version>10.6.1.1</Version>
+    <Version>10.6.1.2</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -42,10 +42,7 @@
     <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="6.0.1" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="6.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Umbraco.Core\Umbraco.Core.csproj" />
+    <PackageReference Include="Umbraco.Cms.Core" Version="10.6.1" />
   </ItemGroup>
 
   <ItemGroup>
