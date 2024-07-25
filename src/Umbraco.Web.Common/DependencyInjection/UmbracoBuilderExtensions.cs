@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Net.Http.Headers;
 using System.Reflection;
 using Dazinator.Extensions.FileProviders.GlobPatternFilter;
 using Microsoft.AspNetCore.Builder;
@@ -6,7 +7,6 @@ using Microsoft.AspNetCore.DataProtection.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
-using Microsoft.AspNetCore.Mvc.Razor.Compilation;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,13 +20,16 @@ using Smidge.FileProcessors;
 using Smidge.InMemory;
 using Smidge.Nuglify;
 using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Blocks;
 using Umbraco.Cms.Core.Cache;
 using Umbraco.Cms.Core.Composing;
+using Umbraco.Cms.Core.Configuration;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Diagnostics;
 using Umbraco.Cms.Core.Extensions;
 using Umbraco.Cms.Core.Hosting;
+using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Logging;
 using Umbraco.Cms.Core.Macros;
 using Umbraco.Cms.Core.Net;
@@ -37,6 +40,9 @@ using Umbraco.Cms.Core.Telemetry;
 using Umbraco.Cms.Core.Templates;
 using Umbraco.Cms.Core.Web;
 using Umbraco.Cms.Core.WebAssets;
+using Umbraco.Cms.Infrastructure.BackgroundJobs;
+using Umbraco.Cms.Infrastructure.BackgroundJobs.Jobs;
+using Umbraco.Cms.Infrastructure.BackgroundJobs.Jobs.ServerRegistration;
 using Umbraco.Cms.Infrastructure.DependencyInjection;
 using Umbraco.Cms.Infrastructure.HostedServices;
 using Umbraco.Cms.Infrastructure.HostedServices.ServerRegistration;
@@ -46,8 +52,11 @@ using Umbraco.Cms.Infrastructure.Persistence.SqlSyntax;
 using Umbraco.Cms.Web.Common;
 using Umbraco.Cms.Web.Common.ApplicationModels;
 using Umbraco.Cms.Web.Common.AspNetCore;
+using Umbraco.Cms.Web.Common.Blocks;
+using Umbraco.Cms.Web.Common.Configuration;
 using Umbraco.Cms.Web.Common.Controllers;
 using Umbraco.Cms.Web.Common.DependencyInjection;
+using Umbraco.Cms.Web.Common.FileProviders;
 using Umbraco.Cms.Web.Common.Localization;
 using Umbraco.Cms.Web.Common.Macros;
 using Umbraco.Cms.Web.Common.Middleware;
@@ -140,11 +149,14 @@ public static partial class UmbracoBuilderExtensions
                 sp,
                 sp.GetRequiredService<IApplicationDiscriminator>()));
 
-        builder.Services.AddHostedService(factory => factory.GetRequiredService<IRuntime>());
-
         builder.Services.AddSingleton<DatabaseSchemaCreatorFactory>();
         builder.Services.TryAddEnumerable(ServiceDescriptor
             .Singleton<IDatabaseProviderMetadata, CustomConnectionStringDatabaseProviderMetadata>());
+
+        // WebRootFileProviderFactory is just a wrapper around the IWebHostEnvironment.WebRootFileProvider,
+        // therefore no need to register it as singleton
+        builder.Services.AddSingleton<IManifestFileProviderFactory, ContentAndWebRootFileProviderFactory>();
+        builder.Services.AddSingleton<IGridEditorsConfigFileProviderFactory, WebRootFileProviderFactory>();
 
         // Must be added here because DbProviderFactories is netstandard 2.1 so cannot exist in Infra for now
         builder.Services.AddSingleton<IDbProviderFactoryCreator>(factory => new DbProviderFactoryCreator(
@@ -169,6 +181,7 @@ public static partial class UmbracoBuilderExtensions
     /// <summary>
     ///     Add Umbraco hosted services
     /// </summary>
+    [Obsolete("Use AddRecurringBackgroundJobs instead")]
     public static IUmbracoBuilder AddHostedServices(this IUmbracoBuilder builder)
     {
         builder.Services.AddHostedService<QueuedHostedService>();
@@ -184,6 +197,37 @@ public static partial class UmbracoBuilderExtensions
             new ReportSiteTask(
                 provider.GetRequiredService<ILogger<ReportSiteTask>>(),
                 provider.GetRequiredService<ITelemetryService>()));
+
+
+        return builder;
+    }
+
+    /// <summary>
+    ///     Add Umbraco recurring background jobs
+    /// </summary>
+    public static IUmbracoBuilder AddRecurringBackgroundJobs(this IUmbracoBuilder builder)
+    {
+        // Add background jobs
+        builder.Services.AddRecurringBackgroundJob<HealthCheckNotifierJob>();
+        builder.Services.AddRecurringBackgroundJob<KeepAliveJob>();
+        builder.Services.AddRecurringBackgroundJob<LogScrubberJob>();
+        builder.Services.AddRecurringBackgroundJob<ContentVersionCleanupJob>();
+        builder.Services.AddRecurringBackgroundJob<ScheduledPublishingJob>();
+        builder.Services.AddRecurringBackgroundJob<TempFileCleanupJob>();
+        builder.Services.AddRecurringBackgroundJob<InstructionProcessJob>();
+        builder.Services.AddRecurringBackgroundJob<TouchServerJob>();
+        builder.Services.AddRecurringBackgroundJob<WebhookFiring>();
+        builder.Services.AddRecurringBackgroundJob<WebhookLoggingCleanup>();
+        builder.Services.AddRecurringBackgroundJob(provider =>
+            new ReportSiteJob(
+                provider.GetRequiredService<ILogger<ReportSiteJob>>(),
+                provider.GetRequiredService<ITelemetryService>()));
+
+
+        builder.Services.AddHostedService<QueuedHostedService>();
+        builder.Services.AddSingleton(RecurringBackgroundJobHostedService.CreateHostedServiceFactory);
+        builder.Services.AddHostedService<RecurringBackgroundJobHostedServiceRunner>();
+
         return builder;
     }
 
@@ -217,6 +261,11 @@ public static partial class UmbracoBuilderExtensions
                 ServerCertificateCustomValidationCallback =
                     HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
             });
+        builder.Services.AddHttpClient(Constants.HttpClients.WebhookFiring, (services, client) =>
+        {
+            var productVersion = services.GetRequiredService<IUmbracoVersion>().SemanticVersion.ToSemanticStringWithoutBuild();
+            client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(Constants.HttpClients.Headers.UserAgentProductName, productVersion));
+        });
         return builder;
     }
 
@@ -285,6 +334,9 @@ public static partial class UmbracoBuilderExtensions
             options.Cookie.HttpOnly = true;
         });
 
+        builder.Services.ConfigureOptions<ConfigureApiVersioningOptions>();
+        builder.Services.ConfigureOptions<ConfigureApiExplorerOptions>();
+        builder.Services.AddApiVersioning().AddApiExplorer();
         builder.Services.ConfigureOptions<UmbracoMvcConfigureOptions>();
         builder.Services.ConfigureOptions<UmbracoRequestLocalizationOptions>();
         builder.Services.TryAddEnumerable(ServiceDescriptor
@@ -293,7 +345,6 @@ public static partial class UmbracoBuilderExtensions
             .Transient<IApplicationModelProvider, BackOfficeApplicationModelProvider>());
         builder.Services.TryAddEnumerable(ServiceDescriptor
             .Transient<IApplicationModelProvider, VirtualPageApplicationModelProvider>());
-        builder.AddUmbracoImageSharp();
 
         // AspNetCore specific services
         builder.Services.AddUnique<IRequestAccessor, AspNetCoreRequestAccessor>();
@@ -332,6 +383,7 @@ public static partial class UmbracoBuilderExtensions
         });
 
         builder.Services.AddSingleton<PartialViewMacroEngine>();
+        builder.Services.AddSingleton<IPartialViewBlockEngine, PartialViewBlockEngine>();
 
         // register the umbraco context factory
         builder.Services.AddUnique<IUmbracoContextFactory, UmbracoContextFactory>();

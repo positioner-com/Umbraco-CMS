@@ -12,10 +12,10 @@ using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Core.Runtime;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Infrastructure.Persistence;
-using Umbraco.Cms.Web.Common.DependencyInjection;
 using Umbraco.Extensions;
 using ComponentCollection = Umbraco.Cms.Core.Composing.ComponentCollection;
 using IHostingEnvironment = Umbraco.Cms.Core.Hosting.IHostingEnvironment;
+using LogLevel = Umbraco.Cms.Core.Logging.LogLevel;
 
 namespace Umbraco.Cms.Infrastructure.Runtime;
 
@@ -152,12 +152,6 @@ public class CoreRuntime : IRuntime
         // Store token, so we can re-use this during restart
         _cancellationToken = cancellationToken;
 
-        // Just in-case HostBuilder.ConfigureUmbracoDefaults() isn't used (e.g. upgrade from 9 and ignored advice).
-        if (StaticServiceProvider.Instance == null!)
-        {
-            StaticServiceProvider.Instance = _serviceProvider!;
-        }
-
         if (isRestarting == false)
         {
             AppDomain.CurrentDomain.UnhandledException += (_, args)
@@ -168,9 +162,6 @@ public class CoreRuntime : IRuntime
 
         // Acquire the main domain - if this fails then anything that should be registered with MainDom will not operate
         AcquireMainDom();
-
-        // TODO (V10): Remove this obsoleted notification publish.
-        await _eventAggregator.PublishAsync(new UmbracoApplicationMainDomAcquiredNotification(), cancellationToken);
 
         // Notify for unattended install
         await _eventAggregator.PublishAsync(new RuntimeUnattendedInstallNotification(), cancellationToken);
@@ -185,8 +176,7 @@ public class CoreRuntime : IRuntime
         IApplicationShutdownRegistry hostingEnvironmentLifetime = _applicationShutdownRegistry;
         if (hostingEnvironmentLifetime == null)
         {
-            throw new InvalidOperationException(
-                $"An instance of {typeof(IApplicationShutdownRegistry)} could not be resolved from the container, ensure that one if registered in your runtime before calling {nameof(IRuntime)}.{nameof(StartAsync)}");
+            throw new InvalidOperationException($"An instance of {typeof(IApplicationShutdownRegistry)} could not be resolved from the container, ensure that one if registered in your runtime before calling {nameof(IRuntime)}.{nameof(StartAsync)}");
         }
 
         // If level is Run and reason is UpgradeMigrations, that means we need to perform an unattended upgrade
@@ -197,8 +187,7 @@ public class CoreRuntime : IRuntime
             case RuntimeUnattendedUpgradeNotification.UpgradeResult.HasErrors:
                 if (State.BootFailedException == null)
                 {
-                    throw new InvalidOperationException(
-                        $"Unattended upgrade result was {RuntimeUnattendedUpgradeNotification.UpgradeResult.HasErrors} but no {nameof(BootFailedException)} was registered");
+                    throw new InvalidOperationException($"Unattended upgrade result was {RuntimeUnattendedUpgradeNotification.UpgradeResult.HasErrors} but no {nameof(BootFailedException)} was registered");
                 }
 
                 // We cannot continue here, the exception will be rethrown by BootFailedMiddelware
@@ -212,39 +201,30 @@ public class CoreRuntime : IRuntime
                 break;
         }
 
-        // TODO (V10): Remove this obsoleted notification publish
-        await _eventAggregator.PublishAsync(
-            new UmbracoApplicationComponentsInstallingNotification(State.Level),
-            cancellationToken);
-
         // Initialize the components
         _components.Initialize();
 
-        await _eventAggregator.PublishAsync(
-            new UmbracoApplicationStartingNotification(State.Level, isRestarting),
-            cancellationToken);
+        await _eventAggregator.PublishAsync(new UmbracoApplicationStartingNotification(State.Level, isRestarting), cancellationToken);
 
         if (isRestarting == false)
         {
             // Add application started and stopped notifications last (to ensure they're always published after starting)
-            _hostApplicationLifetime?.ApplicationStarted.Register(() =>
-                _eventAggregator.Publish(new UmbracoApplicationStartedNotification(false)));
-            _hostApplicationLifetime?.ApplicationStopped.Register(() =>
-                _eventAggregator.Publish(new UmbracoApplicationStoppedNotification(false)));
+            _hostApplicationLifetime?.ApplicationStarted.Register(() => _eventAggregator.Publish(new UmbracoApplicationStartedNotification(false)));
+            _hostApplicationLifetime?.ApplicationStopped.Register(() => _eventAggregator.Publish(new UmbracoApplicationStoppedNotification(false)));
         }
     }
 
     private async Task StopAsync(CancellationToken cancellationToken, bool isRestarting)
     {
         _components.Terminate();
-        await _eventAggregator.PublishAsync(
-            new UmbracoApplicationStoppingNotification(isRestarting),
-            cancellationToken);
+        await _eventAggregator.PublishAsync(new UmbracoApplicationStoppingNotification(isRestarting), cancellationToken);
     }
 
     private void AcquireMainDom()
     {
-        using DisposableTimer? timer = _profilingLogger.DebugDuration<CoreRuntime>("Acquiring MainDom.", "Acquired.");
+        using DisposableTimer? timer = !_profilingLogger.IsEnabled(LogLevel.Debug)
+            ? null
+            : _profilingLogger.DebugDuration<CoreRuntime>("Acquiring MainDom.", "Acquired.");
 
         try
         {
@@ -265,18 +245,25 @@ public class CoreRuntime : IRuntime
             return;
         }
 
-        using DisposableTimer? timer =
-            _profilingLogger.DebugDuration<CoreRuntime>("Determining runtime level.", "Determined.");
+        using DisposableTimer? timer = !_profilingLogger.IsEnabled(LogLevel.Debug)
+            ? null
+            : _profilingLogger.DebugDuration<CoreRuntime>("Determining runtime level.", "Determined.");
 
         try
         {
             State.DetermineRuntimeLevel();
-
-            _logger.LogDebug("Runtime level: {RuntimeLevel} - {RuntimeLevelReason}", State.Level, State.Reason);
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Runtime level: {RuntimeLevel} - {RuntimeLevelReason}", State.Level, State.Reason);
+            }
 
             if (State.Level == RuntimeLevel.Upgrade)
             {
-                _logger.LogDebug("Configure database factory for upgrades.");
+                if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+                {
+                    _logger.LogDebug("Configure database factory for upgrades.");
+                }
+
                 _databaseFactory.ConfigureForUpgrade();
             }
         }

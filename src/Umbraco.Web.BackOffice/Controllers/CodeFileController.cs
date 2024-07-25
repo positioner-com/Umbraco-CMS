@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Hosting;
 using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Mapping;
@@ -22,7 +23,6 @@ using Umbraco.Cms.Web.BackOffice.Trees;
 using Umbraco.Cms.Web.Common.ActionsResults;
 using Umbraco.Cms.Web.Common.Attributes;
 using Umbraco.Cms.Web.Common.Authorization;
-using Umbraco.Cms.Web.Common.DependencyInjection;
 using Umbraco.Extensions;
 using Stylesheet = Umbraco.Cms.Core.Models.Stylesheet;
 using StylesheetRule = Umbraco.Cms.Core.Models.ContentEditing.StylesheetRule;
@@ -633,7 +633,7 @@ public class CodeFileController : BackOfficeNotificationsController
     /// <param name="data">The style sheet data</param>
     /// <returns>The style sheet combined from the CSS and the rules</returns>
     /// <remarks>
-    ///     Any "umbraco style rules" in the CSS will be removed and replaced with the rules passed in <see cref="data" />
+    ///     Any "umbraco style rules" in the CSS will be removed and replaced with the rules passed in <paramref name="data"/>
     /// </remarks>
     public string? PostInterpolateStylesheetRules(StylesheetData data)
     {

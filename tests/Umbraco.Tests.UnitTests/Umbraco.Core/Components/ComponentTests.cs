@@ -1,7 +1,6 @@
 // Copyright (c) Umbraco.
 // See LICENSE for more details.
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -87,7 +86,7 @@ public class ComponentTests
             new TestOptionsMonitor<CoreDebugSettings>(coreDebug),
             mediaFileManager,
             loggerFactory,
-            
+
             eventAggregator);
 
         mock.Setup(x => x.GetService(typeof(ILogger))).Returns(logger);
@@ -158,7 +157,16 @@ public class ComponentTests
                 {
                     return Mock.Of<ILogger<ComponentCollection>>();
                 }
+                
+                if (type == typeof(ILogger<ComponentCollection>))
+                {
+                    return Mock.Of<ILogger<ComponentCollection>>();
+                }
 
+                if (type == typeof(IServiceProviderIsService))
+                {
+                    return Mock.Of<IServiceProviderIsService>();
+                }
                 throw new NotSupportedException(type.FullName);
             });
         });
@@ -315,6 +323,11 @@ public class ComponentTests
                 if (type == typeof(ILogger<ComponentCollection>))
                 {
                     return Mock.Of<ILogger<ComponentCollection>>();
+                }
+                
+                if (type == typeof(IServiceProviderIsService))
+                {
+                    return Mock.Of<IServiceProviderIsService>();
                 }
 
                 throw new NotSupportedException(type.FullName);

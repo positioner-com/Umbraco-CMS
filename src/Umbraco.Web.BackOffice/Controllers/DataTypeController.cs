@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using NPoco;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Mapping;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.ContentEditing;
@@ -21,7 +22,6 @@ using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Web.BackOffice.Filters;
 using Umbraco.Cms.Web.Common.Attributes;
 using Umbraco.Cms.Web.Common.Authorization;
-using Umbraco.Cms.Web.Common.DependencyInjection;
 using Umbraco.Extensions;
 using Constants = Umbraco.Cms.Core.Constants;
 
@@ -430,7 +430,8 @@ namespace Umbraco.Cms.Web.BackOffice.Controllers
             var result = new DataTypeReferences();
             var usages = _dataTypeService.GetReferences(id);
 
-            foreach(var groupOfEntityType in usages.GroupBy(x => x.Key.EntityType))
+            // properties
+            foreach (var groupOfEntityType in usages.GroupBy(x => x.Key.EntityType))
             {
                 //get all the GUIDs for the content types to find
                 var guidsAndPropertyAliases = groupOfEntityType.ToDictionary(i => ((GuidUdi)i.Key).Guid, i => i.Value);
@@ -441,6 +442,21 @@ namespace Umbraco.Cms.Web.BackOffice.Controllers
                     result.MediaTypes = GetContentTypeUsages(_mediaTypeService.GetAll(guidsAndPropertyAliases.Keys), guidsAndPropertyAliases);
                 else if (groupOfEntityType.Key == ObjectTypes.GetUdiType(UmbracoObjectTypes.MemberType))
                     result.MemberTypes = GetContentTypeUsages(_memberTypeService.GetAll(guidsAndPropertyAliases.Keys), guidsAndPropertyAliases);
+            }
+
+            // ListView
+            var listViewUsages = _dataTypeService.GetListViewReferences(id);
+            foreach (var groupOfEntityType in listViewUsages.GroupBy(x => x.Key.EntityType))
+            {
+                //get all the GUIDs for the content types to find
+                var guidsAndPropertyAliases = groupOfEntityType.ToDictionary(i => ((GuidUdi)i.Key).Guid, i => i.Value);
+
+                if (groupOfEntityType.Key == ObjectTypes.GetUdiType(UmbracoObjectTypes.DocumentType))
+                    result.DocumentTypes = result.DocumentTypes.Concat(GetListViewContentTypeUsages(_contentTypeService.GetAll(guidsAndPropertyAliases.Keys), guidsAndPropertyAliases));
+                else if (groupOfEntityType.Key == ObjectTypes.GetUdiType(UmbracoObjectTypes.MediaType))
+                    result.MediaTypes = result.MediaTypes.Concat(GetListViewContentTypeUsages(_mediaTypeService.GetAll(guidsAndPropertyAliases.Keys), guidsAndPropertyAliases));
+                else if (groupOfEntityType.Key == ObjectTypes.GetUdiType(UmbracoObjectTypes.MemberType))
+                    result.MemberTypes = result.MemberTypes.Concat(GetListViewContentTypeUsages(_memberTypeService.GetAll(guidsAndPropertyAliases.Keys), guidsAndPropertyAliases));
             }
 
             return result;
@@ -480,6 +496,22 @@ namespace Umbraco.Cms.Web.BackOffice.Controllers
                     })
             });
         }
+
+        private IEnumerable<DataTypeReferences.ContentTypeReferences> GetListViewContentTypeUsages(
+            IEnumerable<IContentTypeBase> cts,
+            IReadOnlyDictionary<Guid, IEnumerable<string>> usages) => cts.Select(x => new DataTypeReferences.ContentTypeReferences
+            {
+                Id = x.Id,
+                Key = x.Key,
+                Alias = x.Alias,
+                Icon = x.Icon,
+                Name = x.Name,
+                Udi = new GuidUdi(ObjectTypes.GetUdiType(UmbracoObjectTypes.DocumentType), x.Key),
+                ListViews = usages.GetValueOrDefault(x.Key)?.Select(lv => new DataTypeReferences.ContentTypeReferences.ListViewReferences
+                {
+                    Name = lv
+                })
+            });
 
         #region ReadOnly actions to return basic data - allow access for: content ,media, members, settings, developer
         /// <summary>

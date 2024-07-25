@@ -58,10 +58,12 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
     private long _domainGen;
     private SnapDictionary<int, Domain> _domainStore = null!;
     private IAppCache? _elementsCache;
-    private bool _isReadSet;
 
+    private bool _isReadSet;
     private bool _isReady;
     private object? _isReadyLock;
+
+    private bool _mainDomRegistered;
 
     private BPlusTree<int, ContentNodeKit>? _localContentDb;
     private bool _localContentDbExists;
@@ -69,6 +71,8 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
     private bool _localMediaDbExists;
     private long _mediaGen;
     private ContentStore _mediaStore = null!;
+
+    private string LocalFilePath => Path.Combine(_hostingEnvironment.LocalTempPath, "NuCache");
 
     public PublishedSnapshotService(
         PublishedSnapshotServiceOptions options,
@@ -181,8 +185,14 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
 
         foreach (ContentTypeCacheRefresher.JsonPayload payload in payloads)
         {
-            _logger.LogDebug("Notified {ChangeTypes} for {ItemType} {ItemId}", payload.ChangeTypes, payload.ItemType, payload.Id);
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Notified {ChangeTypes} for {ItemType} {ItemId}", payload.ChangeTypes, payload.ItemType, payload.Id);
+            }
         }
+
+        // Ensure all published data types are updated
+        _publishedContentTypeFactory.NotifyDataTypeChanges();
 
         Notify<IContentType>(_contentStore, payloads, RefreshContentTypesLocked);
         Notify<IMediaType>(_mediaStore, payloads, RefreshMediaTypesLocked);
@@ -210,7 +220,16 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
             // they require.
             using (_contentStore.GetScopedWriteLock(_scopeProvider))
             {
-                NotifyLocked(new[] { new ContentCacheRefresher.JsonPayload(0, null, TreeChangeTypes.RefreshAll) }, out _, out _);
+                NotifyLocked(
+                    new[]
+                    {
+                        new ContentCacheRefresher.JsonPayload()
+                        {
+                            ChangeTypes = TreeChangeTypes.RefreshAll
+                        }
+                    },
+                    out _,
+                    out _);
             }
 
             using (_mediaStore.GetScopedWriteLock(_scopeProvider))
@@ -230,10 +249,13 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
 
         foreach (DataTypeCacheRefresher.JsonPayload payload in payloads)
         {
-            _logger.LogDebug(
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug(
                 "Notified {RemovedStatus} for data type {DataTypeId}",
                 payload.Removed ? "Removed" : "Refreshed",
                 payload.Id);
+            }
         }
 
         using (_contentStore.GetScopedWriteLock(_scopeProvider))
@@ -298,15 +320,15 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
                             continue; // anomaly
                         }
 
-                        if (domain.LanguageIsoCode.IsNullOrWhiteSpace())
+                        var culture = domain.LanguageIsoCode;
+                        if (string.IsNullOrWhiteSpace(culture))
                         {
                             continue; // anomaly
                         }
 
-                        var culture = domain.LanguageIsoCode;
                         _domainStore.SetLocked(
                             domain.Id,
-                            new Domain(domain.Id, domain.DomainName, domain.RootContentId.Value, culture, domain.IsWildcard));
+                            new Domain(domain.Id, domain.DomainName, domain.RootContentId.Value, culture, domain.IsWildcard, domain.SortOrder));
                         break;
                 }
             }
@@ -469,6 +491,22 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         return GetUid(_mediaStore, id);
     }
 
+
+    public void ResetLocalDb()
+    {
+        _logger.LogInformation(
+            "Resetting NuCache local db");
+        var path = LocalFilePath;
+        if (Directory.Exists(path) is false)
+        {
+            return;
+        }
+
+        MainDomRelease();
+        Directory.Delete(path, true);
+        MainDomRegister();
+    }
+
     /// <summary>
     ///     Lazily populates the stores only when they are first requested
     /// </summary>
@@ -484,9 +522,20 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
             // it will not be able to close the stores until we are done populating (if the store is empty)
             lock (_storesLock)
             {
+                SyncBootState bootState = _syncBootStateAccessor.GetSyncBootState();
+
                 if (!_options.IgnoreLocalDb)
                 {
-                    _mainDom.Register(MainDomRegister, MainDomRelease);
+                    if (!_mainDomRegistered)
+                    {
+                        _mainDom.Register(MainDomRegister, MainDomRelease);
+                    }
+                    else
+                    {
+                        // MainDom is already registered, so we must be retrying to load cache data
+                        // We can't trust the localdb state, so always perform a cold boot
+                        bootState = SyncBootState.ColdBoot;
+                    }
 
                     // stores are created with a db so they can write to it, but they do not read from it,
                     // stores need to be populated, happens in OnResolutionFrozen which uses _localDbExists to
@@ -534,8 +583,6 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
 
                 var okContent = false;
                 var okMedia = false;
-
-                SyncBootState bootState = _syncBootStateAccessor.GetSyncBootState();
 
                 try
                 {
@@ -597,7 +644,7 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
     /// </remarks>
     private void MainDomRegister()
     {
-        var path = GetLocalFilesPath();
+        var path = GetAndEnsureLocalFilesPathExists();
         var localContentDbPath = Path.Combine(path, "NuCache.Content.db");
         var localMediaDbPath = Path.Combine(path, "NuCache.Media.db");
 
@@ -607,6 +654,8 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         // if both local databases exist then GetTree will open them, else new databases will be created
         _localContentDb = BTree.GetTree(localContentDbPath, _localContentDbExists, _config, _contentDataSerializer);
         _localMediaDb = BTree.GetTree(localMediaDbPath, _localMediaDbExists, _config, _contentDataSerializer);
+
+        _mainDomRegistered = true;
 
         _logger.LogInformation(
             "Registered with MainDom, localContentDbExists? {LocalContentDbExists}, localMediaDbExists? {LocalMediaDbExists}",
@@ -622,15 +671,23 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
     /// </remarks>
     private void MainDomRelease()
     {
-        _logger.LogDebug("Releasing from MainDom...");
+        if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+        {
+            _logger.LogDebug("Releasing from MainDom...");
+        }
 
         lock (_storesLock)
         {
-            _logger.LogDebug("Releasing content store...");
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Releasing content store...");
+            }
             _contentStore?.ReleaseLocalDb(); // null check because we could shut down before being assigned
             _localContentDb = null;
-
-            _logger.LogDebug("Releasing media store...");
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Releasing media store...");
+            }
             _mediaStore?.ReleaseLocalDb(); // null check because we could shut down before being assigned
             _localMediaDb = null;
 
@@ -638,9 +695,9 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         }
     }
 
-    private string GetLocalFilesPath()
+    private string GetAndEnsureLocalFilesPathExists()
     {
-        var path = Path.Combine(_hostingEnvironment.LocalTempPath, "NuCache");
+        var path = LocalFilePath;
 
         if (!Directory.Exists(path))
         {
@@ -685,21 +742,10 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
             _localContentDb?.Clear();
 
             // IMPORTANT GetAllContentSources sorts kits by level + parentId + sortOrder
-            try
-            {
-                IEnumerable<ContentNodeKit> kits = _publishedContentService.GetAllContentSources();
-                return onStartup
-                    ? _contentStore.SetAllFastSortedLocked(kits, _config.KitBatchSize, true)
-                    : _contentStore.SetAllLocked(kits, _config.KitBatchSize, true);
-            }
-            catch (ThreadAbortException tae)
-            {
-                // Caught a ThreadAbortException, most likely from a database timeout.
-                // If we don't catch it here, the whole local cache can remain locked causing widespread panic (see above comment).
-                _logger.LogWarning(tae, tae.Message);
-            }
-
-            return false;
+            IEnumerable<ContentNodeKit> kits = _publishedContentService.GetAllContentSources();
+            return onStartup
+                ? _contentStore.SetAllFastSortedLocked(kits, _config.KitBatchSize, true)
+                : _contentStore.SetAllLocked(kits, _config.KitBatchSize, true);
         }
     }
 
@@ -742,25 +788,16 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
             // beware! at that point the cache is inconsistent,
             // assuming we are going to SetAll content items!
             _localMediaDb?.Clear();
-
-            _logger.LogDebug("Loading media from database...");
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Loading media from database...");
+            }
 
             // IMPORTANT GetAllMediaSources sorts kits by level + parentId + sortOrder
-            try
-            {
-                IEnumerable<ContentNodeKit> kits = _publishedContentService.GetAllMediaSources();
-                return onStartup
-                    ? _mediaStore.SetAllFastSortedLocked(kits, _config.KitBatchSize, true)
-                    : _mediaStore.SetAllLocked(kits, _config.KitBatchSize, true);
-            }
-            catch (ThreadAbortException tae)
-            {
-                // Caught a ThreadAbortException, most likely from a database timeout.
-                // If we don't catch it here, the whole local cache can remain locked causing widespread panic (see above comment).
-                _logger.LogWarning(tae, tae.Message);
-            }
-
-            return false;
+            IEnumerable<ContentNodeKit> kits = _publishedContentService.GetAllMediaSources();
+            return onStartup
+                ? _mediaStore.SetAllFastSortedLocked(kits, _config.KitBatchSize, true)
+                : _mediaStore.SetAllLocked(kits, _config.KitBatchSize, true);
         }
     }
 
@@ -832,7 +869,7 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         {
             foreach (Domain domain in domains
                          .Where(x => x.RootContentId.HasValue && x.LanguageIsoCode.IsNullOrWhiteSpace() == false)
-                         .Select(x => new Domain(x.Id, x.DomainName, x.RootContentId!.Value, x.LanguageIsoCode!, x.IsWildcard)))
+                         .Select(x => new Domain(x.Id, x.DomainName, x.RootContentId!.Value, x.LanguageIsoCode!, x.IsWildcard, x.SortOrder)))
             {
                 _domainStore.SetLocked(domain.Id, domain);
             }
@@ -852,7 +889,16 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         // contentStore is write-locked during changes - see note above, calls to this method are wrapped in contentStore.GetScopedWriteLock
         foreach (ContentCacheRefresher.JsonPayload payload in payloads)
         {
-            _logger.LogDebug("Notified {ChangeTypes} for content {ContentId}", payload.ChangeTypes, payload.Id);
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Notified {ChangeTypes} for content {ContentId}", payload.ChangeTypes, payload.Id);
+            }
+
+            if (payload.Blueprint)
+            {
+                // Skip blueprints
+                continue;
+            }
 
             if (payload.ChangeTypes.HasType(TreeChangeTypes.RefreshAll))
             {
@@ -926,7 +972,10 @@ internal class PublishedSnapshotService : IPublishedSnapshotService
         // see notes for content cache refresher
         foreach (MediaCacheRefresher.JsonPayload payload in payloads)
         {
-            _logger.LogDebug("Notified {ChangeTypes} for media {MediaId}", payload.ChangeTypes, payload.Id);
+            if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _logger.LogDebug("Notified {ChangeTypes} for media {MediaId}", payload.ChangeTypes, payload.Id);
+            }
 
             if (payload.ChangeTypes.HasType(TreeChangeTypes.RefreshAll))
             {

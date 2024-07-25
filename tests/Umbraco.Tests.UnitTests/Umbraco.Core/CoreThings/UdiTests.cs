@@ -1,7 +1,6 @@
 // Copyright (c) Umbraco.
 // See LICENSE for more details.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -207,6 +206,28 @@ public class UdiTests
     }
 
     [Test]
+    public void TryParseTest()
+    {
+        // try parse to "Udi"
+        var stringUdiString = "umb://document/b9a56165-6c4e-4e79-8277-620430174ad3";
+        Assert.IsTrue(UdiParser.TryParse(stringUdiString, out Udi udi1));
+        Assert.AreEqual("b9a56165-6c4e-4e79-8277-620430174ad3", udi1 is GuidUdi guidUdi1 ? guidUdi1.Guid.ToString() : string.Empty);
+
+        // try parse to "Udi"
+        Assert.IsFalse(UdiParser.TryParse("nope", out Udi udi2));
+        Assert.IsNull(udi2);
+
+        // try parse to "GuidUdi?"
+        Assert.IsTrue(UdiParser.TryParse(stringUdiString, out GuidUdi? guidUdi3));
+        Assert.AreEqual("b9a56165-6c4e-4e79-8277-620430174ad3", guidUdi3.Guid.ToString());
+
+        // try parse to "GuidUdi?"
+        Assert.IsFalse(UdiParser.TryParse("nope", out GuidUdi? guidUdi4));
+        Assert.IsNull(guidUdi4);
+
+    }
+
+    [Test]
     public void SerializationTest()
     {
         var settings = new JsonSerializerSettings
@@ -307,9 +328,9 @@ public class UdiTests
     [UdiDefinition("foo", UdiType.GuidUdi)]
     public class FooConnector : IServiceConnector
     {
-        public IArtifact GetArtifact(Udi udi) => throw new NotImplementedException();
+        public IArtifact GetArtifact(Udi udi, IContextCache contextCache) => throw new NotImplementedException();
 
-        public IArtifact GetArtifact(object entity) => throw new NotImplementedException();
+        public IArtifact GetArtifact(object entity, IContextCache contextCache) => throw new NotImplementedException();
 
         public ArtifactDeployState ProcessInit(IArtifact art, IDeployContext context) =>
             throw new NotImplementedException();

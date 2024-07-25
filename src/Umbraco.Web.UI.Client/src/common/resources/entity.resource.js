@@ -176,9 +176,9 @@ function entityResource($q, $http, umbRequestHelper) {
                      "GetUrlsByIds",
                      query),
                  {
-                     ids: ids
+                     ids: udis
                  }),
-             'Failed to retrieve url map for ids ' + ids);
+             'Failed to retrieve url map for ids ' + udis);
         },
 
         getUrlByUdi: function (udi, culture) {
@@ -365,6 +365,22 @@ function entityResource($q, $http, umbRequestHelper) {
                        [{ query: query }, { nodeContextId: nodeContextId }, { parentId: parentId }, { type: type }])),
                'Failed to retrieve entity data for query ' + query);
         },
+
+      getDynamicRoot: function (query, currentId, parentId, culture, segment) {
+        return umbRequestHelper.resourcePromise(
+          $http.post(
+            umbRequestHelper.getApiUrl(
+              "entityApiBaseUrl",
+              "getDynamicRoot"),
+            {
+              query: JSON.parse(query),
+              parentId: parentId,
+              currentId: currentId,
+              currentCulture: culture,
+              currentSegment: segment
+            }),
+          'Failed to retrieve entity data for query ' + query);
+      },
 
         /**
          * @ngdoc method

@@ -2,9 +2,10 @@
 // See LICENSE for more details.
 
 using Microsoft.Extensions.DependencyInjection;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.IO;
+using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Services;
-using Umbraco.Cms.Web.Common.DependencyInjection;
 
 namespace Umbraco.Cms.Core.PropertyEditors;
 
@@ -50,4 +51,11 @@ public class MarkdownPropertyEditor : DataEditor
     /// <inheritdoc />
     protected override IConfigurationEditor CreateConfigurationEditor() =>
         new MarkdownConfigurationEditor(_ioHelper, _editorConfigurationParser);
+
+    /// <summary>
+    ///     Create a custom value editor
+    /// </summary>
+    /// <returns></returns>
+    protected override IDataValueEditor CreateValueEditor() =>
+        DataValueEditorFactory.Create<MarkDownPropertyValueEditor>(Attribute!);
 }

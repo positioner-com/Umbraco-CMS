@@ -52,6 +52,17 @@ public interface IPublishedPropertyType
     PropertyCacheLevel CacheLevel { get; }
 
     /// <summary>
+    ///     Gets the property cache level for Delivery API representation.
+    /// </summary>
+    PropertyCacheLevel DeliveryApiCacheLevel { get; }
+
+    /// <summary>
+    ///     Gets the property cache level for Delivery API representation when expanding the property.
+    /// </summary>
+    /// <remarks>Defaults to the value of <see cref="DeliveryApiCacheLevel"/>.</remarks>
+    PropertyCacheLevel DeliveryApiCacheLevelForExpansion => DeliveryApiCacheLevel;
+
+    /// <summary>
     ///     Gets the property model CLR type.
     /// </summary>
     /// <remarks>
@@ -59,6 +70,14 @@ public interface IPublishedPropertyType
     ///     <para>For the actual CLR type, see <see cref="ClrType" />.</para>
     /// </remarks>
     Type ModelClrType { get; }
+
+    /// <summary>
+    ///     Gets the property model Delivery Api CLR type.
+    /// </summary>
+    /// <remarks>
+    ///     <para>The model CLR type may be a <see cref="ModelType" /> type, or may contain <see cref="ModelType" /> types.</para>
+    /// </remarks>
+    Type DeliveryApiModelClrType => ModelClrType;
 
     /// <summary>
     ///     Gets the property CLR type.
@@ -108,5 +127,21 @@ public interface IPublishedPropertyType
     /// <remarks>
     ///     <para>The XPath value can be either a string or an XPathNavigator.</para>
     /// </remarks>
+    [Obsolete("The current implementation of XPath is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     object? ConvertInterToXPath(IPublishedElement owner, PropertyCacheLevel referenceCacheLevel, object? inter, bool preview);
+
+    /// <summary>
+    ///     Converts the intermediate value into the object value for Delivery API representation.
+    /// </summary>
+    /// <param name="owner">The published element owning the property.</param>
+    /// <param name="referenceCacheLevel">The reference cache level.</param>
+    /// <param name="inter">The intermediate value.</param>
+    /// <param name="preview">A value indicating whether content should be considered draft.</param>
+    /// <param name="expanding">A value indicating whether the property value should be expanded.</param>
+    /// <returns>The object value.</returns>
+    object? ConvertInterToDeliveryApiObject(IPublishedElement owner, PropertyCacheLevel referenceCacheLevel, object? inter, bool preview, bool expanding);
+
+    [Obsolete($"Use the {nameof(ConvertInterToDeliveryApiObject)} that supports property expansion. Will be removed in V14.")]
+    object? ConvertInterToDeliveryApiObject(IPublishedElement owner, PropertyCacheLevel referenceCacheLevel, object? inter, bool preview)
+        => ConvertInterToDeliveryApiObject(owner, referenceCacheLevel, inter, preview, false);
 }

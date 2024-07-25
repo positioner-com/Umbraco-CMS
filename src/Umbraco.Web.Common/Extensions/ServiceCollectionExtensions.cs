@@ -82,8 +82,9 @@ public static class ServiceCollectionExtensions
         IHostEnvironment hostEnvironment,
         IConfiguration configuration)
     {
-        // TODO: WEBSITE_RUN_FROM_PACKAGE - can't assume this DIR is writable - we have an IConfiguration instance so a later refactor should be easy enough.
-        var loggingDir = hostEnvironment.MapPathContentRoot(Constants.SystemDirectories.LogFiles);
+        LoggingSettings loggerSettings = GetLoggerSettings(configuration);
+
+        var loggingDir = loggerSettings.GetAbsoluteLoggingPath(hostEnvironment);
         ILoggingConfiguration loggingConfig = new LoggingConfiguration(loggingDir);
 
         var umbracoFileConfiguration = new UmbracoFileConfiguration(configuration);
@@ -153,6 +154,13 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    private static LoggingSettings GetLoggerSettings(IConfiguration configuration)
+    {
+        var loggerSettings = new LoggingSettings();
+        configuration.GetSection(Constants.Configuration.ConfigLogging).Bind(loggerSettings);
+        return loggerSettings;
+    }
+
     /// <summary>
     ///     Called to create the <see cref="TypeLoader" /> to assign to the <see cref="IUmbracoBuilder" />
     /// </summary>
@@ -200,6 +208,7 @@ public static class ServiceCollectionExtensions
         var typeFinder = new TypeFinder(
             loggerFactory.CreateLogger<TypeFinder>(),
             assemblyProvider,
+            typeFinderSettings.AdditionalAssemblyExclusionEntries,
             typeFinderConfig);
 
         var typeLoader = new TypeLoader(typeFinder, loggerFactory.CreateLogger<TypeLoader>());

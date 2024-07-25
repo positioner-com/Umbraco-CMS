@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Umbraco.Cms.Core.Security;
@@ -13,7 +14,7 @@ public interface IMemberSignInManager
 
     Task SignOutAsync();
 
-    AuthenticationProperties ConfigureExternalAuthenticationProperties(string provider, string redirectUrl, string? userId = null);
+    AuthenticationProperties ConfigureExternalAuthenticationProperties(string? provider, string? redirectUrl, string? userId = null);
 
     Task<ExternalLoginInfo?> GetExternalLoginInfoAsync(string? expectedXsrf = null);
 
@@ -21,7 +22,9 @@ public interface IMemberSignInManager
 
     Task<SignInResult> ExternalLoginSignInAsync(ExternalLoginInfo loginInfo, bool isPersistent, bool bypassTwoFactor = false);
 
-    Task<MemberIdentityUser> GetTwoFactorAuthenticationUserAsync();
+    Task<MemberIdentityUser?> GetTwoFactorAuthenticationUserAsync();
 
-    Task<SignInResult> TwoFactorSignInAsync(string? provider, string? code, bool isPersistent, bool rememberClient);
+    Task<SignInResult> TwoFactorSignInAsync(string provider, string code, bool isPersistent, bool rememberClient);
+
+    Task<ClaimsPrincipal> CreateUserPrincipalAsync(MemberIdentityUser user) => Task.FromResult(new ClaimsPrincipal());
 }

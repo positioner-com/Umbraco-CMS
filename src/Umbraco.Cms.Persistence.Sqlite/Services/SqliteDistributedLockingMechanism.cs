@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
-using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,8 +16,8 @@ namespace Umbraco.Cms.Persistence.Sqlite.Services;
 
 public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
 {
-    private readonly IOptionsMonitor<ConnectionStrings> _connectionStrings;
-    private readonly IOptionsMonitor<GlobalSettings> _globalSettings;
+    private ConnectionStrings _connectionStrings;
+    private GlobalSettings _globalSettings;
     private readonly ILogger<SqliteDistributedLockingMechanism> _logger;
     private readonly Lazy<IScopeAccessor> _scopeAccessor;
 
@@ -30,25 +29,27 @@ public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
     {
         _logger = logger;
         _scopeAccessor = scopeAccessor;
-        _connectionStrings = connectionStrings;
-        _globalSettings = globalSettings;
+        _connectionStrings = connectionStrings.CurrentValue;
+        _globalSettings = globalSettings.CurrentValue;
+         globalSettings.OnChange(x=>_globalSettings = x);
+         connectionStrings.OnChange(x=>_connectionStrings = x);
     }
 
     /// <inheritdoc />
-    public bool Enabled => _connectionStrings.CurrentValue.IsConnectionStringConfigured() &&
-                           string.Equals(_connectionStrings.CurrentValue.ProviderName, Constants.ProviderName, StringComparison.InvariantCultureIgnoreCase);
+    public bool Enabled => _connectionStrings.IsConnectionStringConfigured() &&
+                           string.Equals(_connectionStrings.ProviderName, Constants.ProviderName, StringComparison.InvariantCultureIgnoreCase);
 
     // With journal_mode=wal we can always read a snapshot.
     public IDistributedLock ReadLock(int lockId, TimeSpan? obtainLockTimeout = null)
     {
-        obtainLockTimeout ??= _globalSettings.CurrentValue.DistributedLockingReadLockDefaultTimeout;
+        obtainLockTimeout ??= _globalSettings.DistributedLockingReadLockDefaultTimeout;
         return new SqliteDistributedLock(this, lockId, DistributedLockType.ReadLock, obtainLockTimeout.Value);
     }
 
     // With journal_mode=wal only a single write transaction can exist at a time.
     public IDistributedLock WriteLock(int lockId, TimeSpan? obtainLockTimeout = null)
     {
-        obtainLockTimeout ??= _globalSettings.CurrentValue.DistributedLockingWriteLockDefaultTimeout;
+        obtainLockTimeout ??= _globalSettings.DistributedLockingWriteLockDefaultTimeout;
         return new SqliteDistributedLock(this, lockId, DistributedLockType.WriteLock, obtainLockTimeout.Value);
     }
 
@@ -67,8 +68,10 @@ public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
             _timeout = timeout;
             LockId = lockId;
             LockType = lockType;
-
-            _parent._logger.LogDebug("Requesting {lockType} for id {id}", LockType, LockId);
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _parent._logger.LogDebug("Requesting {lockType} for id {id}", LockType, LockId);
+            }
 
             try
             {
@@ -84,7 +87,7 @@ public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
                         throw new ArgumentOutOfRangeException(nameof(lockType), lockType, @"Unsupported lockType");
                 }
             }
-            catch (SqlException ex) when (ex.Number == 1222)
+            catch (SqliteException ex) when (ex.SqliteErrorCode == SQLitePCL.raw.SQLITE_BUSY)
             {
                 if (LockType == DistributedLockType.ReadLock)
                 {
@@ -93,17 +96,24 @@ public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
 
                 throw new DistributedWriteLockTimeoutException(LockId);
             }
-
-            _parent._logger.LogDebug("Acquired {lockType} for id {id}", LockType, LockId);
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _parent._logger.LogDebug("Acquired {lockType} for id {id}", LockType, LockId);
+            }
         }
 
         public int LockId { get; }
 
         public DistributedLockType LockType { get; }
 
-        public void Dispose() =>
-            // Mostly no op, cleaned up by completing transaction in scope.
-            _parent._logger.LogDebug("Dropped {lockType} for id {id}", LockType, LockId);
+        public void Dispose()
+        {
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                // Mostly no op, cleaned up by completing transaction in scope.
+                _parent._logger.LogDebug("Dropped {lockType} for id {id}", LockType, LockId);
+            }
+        }
 
         public override string ToString()
             => $"SqliteDistributedLock({LockId})";
@@ -154,7 +164,7 @@ public class SqliteDistributedLockingMechanism : IDistributedLockingMechanism
 
             try
             {
-                var i = command.ExecuteNonQuery();
+                var i = db.ExecuteNonQuery(command);
 
                 if (i == 0)
                 {

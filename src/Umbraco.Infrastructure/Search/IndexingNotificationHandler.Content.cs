@@ -9,7 +9,9 @@ using Umbraco.Extensions;
 
 namespace Umbraco.Cms.Infrastructure.Search;
 
-public sealed class ContentIndexingNotificationHandler : INotificationHandler<ContentCacheRefresherNotification>
+public sealed class ContentIndexingNotificationHandler :
+    INotificationHandler<ContentCacheRefresherNotification>,
+    INotificationHandler<PublicAccessCacheRefresherNotification>
 {
     private readonly IContentService _contentService;
     private readonly IUmbracoIndexingHandler _umbracoIndexingHandler;
@@ -51,13 +53,15 @@ public sealed class ContentIndexingNotificationHandler : INotificationHandler<Co
 
         foreach (ContentCacheRefresher.JsonPayload payload in (ContentCacheRefresher.JsonPayload[])args.MessageObject)
         {
+            if (payload.Blueprint)
+            {
+                // Skip blueprints
+                continue;
+            }
+
             if (payload.ChangeTypes.HasType(TreeChangeTypes.Remove))
             {
-                if (deleteBatch == null)
-                {
-                    deleteBatch = new HashSet<int>();
-                }
-
+                deleteBatch ??= new HashSet<int>();
                 deleteBatch.Add(payload.Id);
             }
             else if (payload.ChangeTypes.HasType(TreeChangeTypes.RefreshAll))
@@ -158,4 +162,7 @@ public sealed class ContentIndexingNotificationHandler : INotificationHandler<Co
             _umbracoIndexingHandler.DeleteIndexForEntities(deleteBatch, false);
         }
     }
+
+    public void Handle(PublicAccessCacheRefresherNotification notification)
+        => _umbracoIndexingHandler.RemoveProtectedContent();
 }

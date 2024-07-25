@@ -3,6 +3,9 @@ using Umbraco.Cms.Core.Cache;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.ContentApps;
 using Umbraco.Cms.Core.Dashboards;
+using Umbraco.Cms.Core.DeliveryApi;
+using Umbraco.Cms.Core.DynamicRoot.Origin;
+using Umbraco.Cms.Core.DynamicRoot.QuerySteps;
 using Umbraco.Cms.Core.Editors;
 using Umbraco.Cms.Core.HealthChecks;
 using Umbraco.Cms.Core.HealthChecks.NotificationMethods;
@@ -18,6 +21,7 @@ using Umbraco.Cms.Core.Strings;
 using Umbraco.Cms.Core.Tour;
 using Umbraco.Cms.Core.Trees;
 using Umbraco.Cms.Core.WebAssets;
+using Umbraco.Cms.Core.Webhooks;
 using Umbraco.Extensions;
 
 namespace Umbraco.Cms.Core.DependencyInjection;
@@ -32,9 +36,9 @@ public static partial class UmbracoBuilderExtensions
     /// </summary>
     internal static void AddAllCoreCollectionBuilders(this IUmbracoBuilder builder)
     {
-        builder.CacheRefreshers().Add(() => builder.TypeLoader.GetCacheRefreshers());
-        builder.DataEditors().Add(() => builder.TypeLoader.GetDataEditors());
-        builder.Actions().Add(() => builder .TypeLoader.GetActions());
+        builder.CacheRefreshers().Add(builder.TypeLoader.GetCacheRefreshers);
+        builder.DataEditors().Add(builder.TypeLoader.GetDataEditors);
+        builder.Actions().Add(builder.TypeLoader.GetActions);
 
         // register known content apps
         builder.ContentApps()
@@ -76,6 +80,20 @@ public static partial class UmbracoBuilderExtensions
             .Append<MembersSection>()
             .Append<FormsSection>()
             .Append<TranslationSection>();
+
+        builder.DynamicRootOriginFinders()
+            .Append<ByKeyDynamicRootOriginFinder>()
+            .Append<ParentDynamicRootOriginFinder>()
+            .Append<CurrentDynamicRootOriginFinder>()
+            .Append<SiteDynamicRootOriginFinder>()
+            .Append<RootDynamicRootOriginFinder>();
+
+        builder.DynamicRootSteps()
+            .Append<NearestAncestorOrSelfDynamicRootQueryStep>()
+            .Append<FurthestAncestorOrSelfDynamicRootQueryStep>()
+            .Append<NearestDescendantOrSelfDynamicRootQueryStep>()
+            .Append<FurthestDescendantOrSelfDynamicRootQueryStep>();
+
         builder.Components();
         // register core CMS dashboards and 3rd party types - will be ordered by weight attribute & merged with package.manifest dashboards
         builder.Dashboards()
@@ -123,6 +141,11 @@ public static partial class UmbracoBuilderExtensions
             .Append<LottieFiles>();
         builder.SearchableTrees().Add(() => builder.TypeLoader.GetTypes<ISearchableTree>());
         builder.BackOfficeAssets();
+        builder.SelectorHandlers().Add(() => builder.TypeLoader.GetTypes<ISelectorHandler>());
+        builder.FilterHandlers().Add(() => builder.TypeLoader.GetTypes<IFilterHandler>());
+        builder.SortHandlers().Add(() => builder.TypeLoader.GetTypes<ISortHandler>());
+        builder.ContentIndexHandlers().Add(() => builder.TypeLoader.GetTypes<IContentIndexHandler>());
+        builder.WebhookEvents().AddCms(true);
     }
 
     /// <summary>
@@ -190,6 +213,18 @@ public static partial class UmbracoBuilderExtensions
     public static SectionCollectionBuilder Sections(this IUmbracoBuilder builder)
         => builder.WithCollectionBuilder<SectionCollectionBuilder>();
 
+    public static DynamicRootOriginFinderCollectionBuilder DynamicRootOriginFinders(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<DynamicRootOriginFinderCollectionBuilder>();
+
+    public static DynamicRootQueryStepCollectionBuilder DynamicRootSteps(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<DynamicRootQueryStepCollectionBuilder>();
+
+    /// <summary>
+    /// Gets the backoffice sections/applications collection builder.
+    /// </summary>
+    /// <param name="builder">The builder.</param>
+    public static WebhookEventCollectionBuilder WebhookEvents(this IUmbracoBuilder builder) => builder.WithCollectionBuilder<WebhookEventCollectionBuilder>();
+
     /// <summary>
     /// Gets the components collection builder.
     /// </summary>
@@ -204,12 +239,20 @@ public static partial class UmbracoBuilderExtensions
         => builder.WithCollectionBuilder<DashboardCollectionBuilder>();
 
     /// <summary>
-    public static PartialViewSnippetCollectionBuilder? PartialViewSnippets(this IUmbracoBuilder builder)
+    /// Gets the partial view snippets collection builder.
+    /// </summary>
+    /// <param name="builder">The builder.</param>
+    public static PartialViewSnippetCollectionBuilder PartialViewSnippets(this IUmbracoBuilder builder)
         => builder.WithCollectionBuilder<PartialViewSnippetCollectionBuilder>();
 
-    public static PartialViewMacroSnippetCollectionBuilder? PartialViewMacroSnippets(this IUmbracoBuilder builder)
+    /// <summary>
+    /// Gets the partial view macro snippets collection builder.
+    /// </summary>
+    /// <param name="builder">The builder.</param>
+    public static PartialViewMacroSnippetCollectionBuilder PartialViewMacroSnippets(this IUmbracoBuilder builder)
         => builder.WithCollectionBuilder<PartialViewMacroSnippetCollectionBuilder>();
 
+    /// <summary>
     /// Gets the cache refreshers collection builder.
     /// </summary>
     /// <param name="builder">The builder.</param>
@@ -273,14 +316,6 @@ public static partial class UmbracoBuilderExtensions
         => builder.WithCollectionBuilder<MediaUrlGeneratorCollectionBuilder>();
 
     /// <summary>
-    /// Gets the backoffice OEmbed Providers collection builder.
-    /// </summary>
-    /// <param name="builder">The builder.</param>
-    [Obsolete("Use EmbedProviders() instead")]
-    public static EmbedProvidersCollectionBuilder OEmbedProviders(this IUmbracoBuilder builder)
-        => EmbedProviders(builder);
-
-    /// <summary>
     /// Gets the backoffice Embed Providers collection builder.
     /// </summary>
     /// <param name="builder">The builder.</param>
@@ -298,4 +333,28 @@ public static partial class UmbracoBuilderExtensions
     /// </summary>
     public static CustomBackOfficeAssetsCollectionBuilder BackOfficeAssets(this IUmbracoBuilder builder)
         => builder.WithCollectionBuilder<CustomBackOfficeAssetsCollectionBuilder>();
+
+    /// <summary>
+    /// Gets the Delivery API selector handler collection builder
+    /// </summary>
+    public static SelectorHandlerCollectionBuilder SelectorHandlers(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<SelectorHandlerCollectionBuilder>();
+
+    /// <summary>
+    /// Gets the Delivery API filter handler collection builder
+    /// </summary>
+    public static FilterHandlerCollectionBuilder FilterHandlers(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<FilterHandlerCollectionBuilder>();
+
+    /// <summary>
+    /// Gets the Delivery API sort handler collection builder
+    /// </summary>
+    public static SortHandlerCollectionBuilder SortHandlers(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<SortHandlerCollectionBuilder>();
+
+    /// <summary>
+    /// Gets the Delivery API content index handler collection builder
+    /// </summary>
+    public static ContentIndexHandlerCollectionBuilder ContentIndexHandlers(this IUmbracoBuilder builder)
+        => builder.WithCollectionBuilder<ContentIndexHandlerCollectionBuilder>();
 }

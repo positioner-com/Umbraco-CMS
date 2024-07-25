@@ -5,7 +5,7 @@
         appState, contentResource, entityResource, navigationService, notificationsService, contentAppHelper,
         serverValidationManager, contentEditingHelper, localizationService, formHelper, umbRequestHelper,
         editorState, $http, eventsService, overlayService, $location, localStorageService, treeService,
-        $exceptionHandler, uploadTracker) {
+        $exceptionHandler, uploadTracker) {        
 
         var evts = [];
         var infiniteMode = $scope.infiniteModel && $scope.infiniteModel.infiniteMode;
@@ -35,10 +35,18 @@
         $scope.activeApp = null;
 
         //initializes any watches
+        var watchers = [];
+
         function startWatches(content) {
+            clearWatchers();
+
+            watchers.push($scope.$watchGroup(['culture', 'segment'],
+            function (value, oldValue) {
+                createPreviewButton($scope.content, value[0], value[1]);
+            }));
 
             //watch for changes to isNew, set the page.isNew accordingly and load the breadcrumb if we can
-            $scope.$watch('isNew', function (newVal, oldVal) {
+            watchers.push($scope.$watch('isNew', function (newVal, oldVal) {
 
                 $scope.page.isNew = Object.toBoolean(newVal);
 
@@ -54,8 +62,12 @@
                             });
                     }
                 }
-            });
+            }));
+        }
 
+        function clearWatchers () {
+            watchers.forEach(w => w());
+            watchers = [];
         }
 
         //this initializes the editor with the data which will be called more than once if the data is re-loaded
@@ -104,6 +116,7 @@
             bindEvents();
 
             resetVariantFlags();
+            startWatches($scope.content);
         }
 
         function loadBreadcrumb() {
@@ -236,7 +249,6 @@
 
                     appendRuntimeData();
                     init();
-                    startWatches($scope.content);
 
                     syncTreeNode($scope.content, $scope.content.path, true);
 
@@ -260,7 +272,6 @@
 
                     appendRuntimeData();
                     init();
-                    startWatches($scope.content);
 
                     resetLastListPageNumber($scope.content);
 
@@ -322,6 +333,39 @@
 
             $scope.defaultButton = buttons.defaultButton;
             $scope.subButtons = buttons.subButtons;
+        }
+
+        /**
+         * Create the preview buttons for the active variant
+         * @param {any} content the content node
+         * @param {string} culture the active culture
+         * @param {string} segment the active segment
+         */
+        function createPreviewButton (content, culture, segment) {
+
+            const compositeId = culture + '_' + segment;
+            const defaultPreviewUrl = `preview/?id=${content.id}${culture ? `&culture=${culture}` : ''}`;
+
+            $scope.previewDefaultButton = {
+                alias: 'preview',
+                handler: () => $scope.preview($scope.content, defaultPreviewUrl, 'umbpreview'),
+                labelKey: "buttons_saveAndPreview"
+            };
+
+            let activeVariant = content.variants?.find((variant) => content.documentType?.variations === "Nothing" || variant.compositeId === compositeId);
+            /* if we can't find the active variant and there is only one variant available, we will use that.
+            this happens if we have a node that can vary by culture but there is only one language available. */
+            activeVariant = !activeVariant && content.variants.length === 1 ? content.variants[0] : activeVariant;
+
+            $scope.previewSubButtons = activeVariant?.additionalPreviewUrls?.map((additionalPreviewUrl) => {
+                return {
+                    alias: 'preview_' + additionalPreviewUrl.name,
+                    label: additionalPreviewUrl.name,
+                    // We use target _blank here. If we open the window in the same tab with a 'umb_preview_name' target, we get a cors js error.
+                    handler: () => $scope.preview(content, additionalPreviewUrl.url, '_blank')
+                }
+            });
+
             $scope.page.showPreviewButton = true;
         }
 
@@ -676,7 +720,8 @@
             }
         };
 
-        $scope.saveAndPublish = function () {
+        $scope.saveAndPublish = function (submitButtonLabelKey) {
+            var deferred = $q.defer();
             clearNotifications($scope.content);
             if (hasVariants($scope.content)) {
                 //before we launch the dialog we want to execute all client side validations first
@@ -686,7 +731,7 @@
                         view: "views/content/overlays/publish.html",
                         variants: $scope.content.variants, //set a model property for the dialog
                         skipFormValidation: true, //when submitting the overlay form, skip any client side validation
-                        submitButtonLabelKey: "buttons_saveAndPublish",
+                        submitButtonLabelKey: submitButtonLabelKey || "buttons_saveAndPublish",
                         submit: function (model) {
                             model.submitButtonState = "busy";
                             clearNotifications($scope.content);
@@ -700,6 +745,7 @@
                                 formHelper.showNotifications(data);
                                 clearNotifications($scope.content);
                                 overlayService.close();
+                                deferred.resolve();
                                 return $q.when(data);
                             }, function (err) {
                                 clearDirtyState($scope.content.variants);
@@ -712,16 +758,19 @@
                                 clearNotifications($scope.content);
                                 
                                 handleHttpException(err);
+                                deferred.reject(err);
                             });
                         },
                         close: function () {
                             overlayService.close();
+                            deferred.reject();
                         }
                     };
                     overlayService.open(dialog);
                 }
                 else {
                     showValidationNotification();
+                    deferred.reject();
                 }
             }
             else {
@@ -734,14 +783,19 @@
                     action: "publish"
                 }).then(function () {
                     $scope.page.buttonGroupState = "success";
+                    deferred.resolve();
                 }, function (err) {
                     $scope.page.buttonGroupState = "error";
                     handleHttpException(err);
+                    deferred.reject(err);
                 });
             }
+
+            return deferred.promise;
         };
 
-        $scope.save = function () {
+        $scope.save = function (submitButtonLabelKey) {
+            var deferred = $q.defer();
             clearNotifications($scope.content);
             // TODO: Add "..." to save button label if there are more than one variant to publish - currently it just adds the elipses if there's more than 1 variant
             if (hasVariants($scope.content)) {
@@ -750,7 +804,7 @@
                     view: "views/content/overlays/save.html",
                     variants: $scope.content.variants, //set a model property for the dialog
                     skipFormValidation: true, //when submitting the overlay form, skip any client side validation
-                    submitButtonLabelKey: "buttons_save",
+                    submitButtonLabelKey: submitButtonLabelKey || "buttons_save",
                     submit: function (model) {
                         model.submitButtonState = "busy";
                         clearNotifications($scope.content);
@@ -765,6 +819,7 @@
                             formHelper.showNotifications(data);
                             clearNotifications($scope.content);
                             overlayService.close();
+                            deferred.resolve();
                             return $q.when(data);
                         }, function (err) {
                             clearDirtyState($scope.content.variants);
@@ -783,10 +838,12 @@
 
                                 handleHttpException(err);
                             }
+                            deferred.reject();
                         })
                     },
                     close: function (oldModel) {
                         overlayService.close();
+                        deferred.reject();
                     }
                 };
 
@@ -802,6 +859,7 @@
                     skipValidation: true
                 }).then(function () {
                     $scope.page.saveButtonState = "success";
+                    deferred.resolve();
                 }, function (err) {
                     // Because this is the "save"-action, then we actually save though there was a validation error, therefor we will show success and display the validation errors politely.
                     if(err && err.data && err.data.ModelState && Object.keys(err.data.ModelState).length > 0) {
@@ -810,9 +868,11 @@
                         $scope.page.saveButtonState = "error";
                     }
                     handleHttpException(err);
+                    deferred.reject();
                 });
             }
 
+            return deferred.promise;
         };
 
         $scope.schedule = function () {
@@ -936,13 +996,13 @@
             }
         };
 
-        $scope.preview = function (content) {
+        $scope.preview = function (content, url, urlTarget) {
 
-            const openPreviewWindow = () => {
+            const openPreviewWindow = (url, target) => {
                 // Chromes popup blocker will kick in if a window is opened
                 // without the initial scoped request. This trick will fix that.
               
-              const previewWindow = $window.open(`preview/?id=${content.id}${$scope.culture ? `&culture=${$scope.culture}` : ''}`, 'umbpreview');
+              const previewWindow = $window.open(url, target);
 
               previewWindow.addEventListener('load', () => {
                 previewWindow.location.href = previewWindow.document.URL;
@@ -953,7 +1013,7 @@
             //The user cannot save if they don't have access to do that, in which case we just want to preview
             //and that's it otherwise they'll get an unauthorized access message
             if (!_.contains(content.allowedActions, "A")) {
-                openPreviewWindow();
+                openPreviewWindow(url, urlTarget);
             }
             else {
                 var selectedVariant = $scope.content.variants[0];
@@ -972,7 +1032,7 @@
                 //ensure the save flag is set for the active variant
                 selectedVariant.save = true;
                 performSave({ saveMethod: $scope.saveMethod(), action: "save" }).then(function (data) {
-                    openPreviewWindow()
+                    openPreviewWindow(url, urlTarget);
                 }, function (err) {
                     //validation issues ....
                 });
@@ -982,25 +1042,35 @@
         /* publish method used in infinite editing */
         $scope.publishAndClose = function (content) {
             $scope.publishAndCloseButtonState = "busy";
-            performSave({ saveMethod: contentResource.publish, action: "publish" }).then(function () {
-                if ($scope.infiniteModel.submit) {
-                    $scope.infiniteModel.contentNode = content;
-                    $scope.infiniteModel.submit($scope.infiniteModel);
+            $scope.saveAndPublish("buttons_publishAndClose").then(
+                function() {
+                    if ($scope.infiniteModel.submit) {
+                        $scope.infiniteModel.contentNode = content;
+                        $scope.infiniteModel.submit($scope.infiniteModel);
+                    }
+                    $scope.publishAndCloseButtonState = "success";
+                },
+                function() {
+                    $scope.publishAndCloseButtonState = "error";
                 }
-                $scope.publishAndCloseButtonState = "success";
-            });
+            );
         };
 
         /* save method used in infinite editing */
         $scope.saveAndClose = function (content) {
             $scope.saveAndCloseButtonState = "busy";
-            performSave({ saveMethod: $scope.saveMethod(), action: "save" }).then(function () {
-                if ($scope.infiniteModel.submit) {
-                    $scope.infiniteModel.contentNode = content;
-                    $scope.infiniteModel.submit($scope.infiniteModel);
+            $scope.save("buttons_saveAndClose").then(
+                function() {
+                    if ($scope.infiniteModel.submit) {
+                        $scope.infiniteModel.contentNode = content;
+                        $scope.infiniteModel.submit($scope.infiniteModel);
+                    }
+                    $scope.saveAndCloseButtonState = "success";
+                },
+                function() {
+                    $scope.saveAndCloseButtonState = "error";
                 }
-                $scope.saveAndCloseButtonState = "success";
-            });
+            );
         };
 
         /**

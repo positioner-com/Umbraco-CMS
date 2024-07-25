@@ -15,12 +15,15 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Xml;
 using System.Xml.XPath;
+using Umbraco.Cms.Core.PropertyEditors;
 
 namespace Umbraco.Cms.Core.Xml.XPath;
 
 /// <summary>
 ///     Provides a cursor model for navigating Umbraco data as if it were XML.
 /// </summary>
+
+[Obsolete("The current implementation of XPath is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
 public class NavigableNavigator : XPathNavigator
 {
     // "The XmlNameTable stores atomized strings of any local name, namespace URI,
@@ -637,6 +640,11 @@ public class NavigableNavigator : XPathNavigator
             InternalState.Position = StatePosition.PropertyText;
             DebugState();
             return true;
+        }
+
+        if (valueForXPath is IRichTextEditorIntermediateValue)
+        {
+            return false;
         }
 
         throw new InvalidOperationException("XPathValue must be an XPathNavigator or a string.");

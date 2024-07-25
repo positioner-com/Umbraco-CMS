@@ -6,11 +6,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Cache;
 using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Core.Security;
-using Umbraco.Cms.Web.Common.DependencyInjection;
 using Umbraco.Cms.Web.Common.Security;
 using Umbraco.Extensions;
 
@@ -36,8 +37,10 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
         ILogger<SignInManager<BackOfficeIdentityUser>> logger,
         IAuthenticationSchemeProvider schemes,
         IUserConfirmation<BackOfficeIdentityUser> confirmation,
-        IEventAggregator eventAggregator)
-        : base(userManager, contextAccessor, claimsFactory, optionsAccessor, logger, schemes, confirmation)
+        IEventAggregator eventAggregator,
+        IOptions<SecuritySettings> securitySettings,
+        IRequestCache requestCache)
+        : base(userManager, contextAccessor, claimsFactory, optionsAccessor, logger, schemes, confirmation, securitySettings, requestCache)
     {
         _userManager = userManager;
         _externalLogins = externalLogins;
@@ -45,7 +48,63 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
         _globalSettings = globalSettings.Value;
     }
 
-    [Obsolete("Use ctor with all params")]
+    [Obsolete("Use non-obsolete constructor. This is scheduled for removal in V15.")]
+    public BackOfficeSignInManager(
+        BackOfficeUserManager userManager,
+        IHttpContextAccessor contextAccessor,
+        IBackOfficeExternalLoginProviders externalLogins,
+        IUserClaimsPrincipalFactory<BackOfficeIdentityUser> claimsFactory,
+        IOptions<IdentityOptions> optionsAccessor,
+        IOptions<GlobalSettings> globalSettings,
+        ILogger<SignInManager<BackOfficeIdentityUser>> logger,
+        IAuthenticationSchemeProvider schemes,
+        IUserConfirmation<BackOfficeIdentityUser> confirmation,
+        IEventAggregator eventAggregator,
+        IOptions<SecuritySettings> securitySettings)
+        : this(
+            userManager,
+            contextAccessor,
+            externalLogins,
+            claimsFactory,
+            optionsAccessor,
+            globalSettings,
+            logger,
+            schemes,
+            confirmation,
+            eventAggregator,
+            securitySettings,
+            StaticServiceProvider.Instance.GetRequiredService<IRequestCache>())
+    {
+    }
+
+    [Obsolete("Use non-obsolete constructor. This is scheduled for removal in V14.")]
+    public BackOfficeSignInManager(
+        BackOfficeUserManager userManager,
+        IHttpContextAccessor contextAccessor,
+        IBackOfficeExternalLoginProviders externalLogins,
+        IUserClaimsPrincipalFactory<BackOfficeIdentityUser> claimsFactory,
+        IOptions<IdentityOptions> optionsAccessor,
+        IOptions<GlobalSettings> globalSettings,
+        ILogger<SignInManager<BackOfficeIdentityUser>> logger,
+        IAuthenticationSchemeProvider schemes,
+        IUserConfirmation<BackOfficeIdentityUser> confirmation,
+        IEventAggregator eventAggregator)
+        : this(
+            userManager,
+            contextAccessor,
+            externalLogins,
+            claimsFactory,
+            optionsAccessor,
+            globalSettings,
+            logger,
+            schemes,
+            confirmation,
+            eventAggregator,
+            StaticServiceProvider.Instance.GetRequiredService<IOptions<SecuritySettings>>())
+    {
+    }
+
+    [Obsolete("Use non-obsolete constructor. This is scheduled for removal in V14.")]
     public BackOfficeSignInManager(
         BackOfficeUserManager userManager,
         IHttpContextAccessor contextAccessor,
@@ -56,7 +115,18 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
         ILogger<SignInManager<BackOfficeIdentityUser>> logger,
         IAuthenticationSchemeProvider schemes,
         IUserConfirmation<BackOfficeIdentityUser> confirmation)
-        : this(userManager, contextAccessor, externalLogins, claimsFactory, optionsAccessor, globalSettings, logger, schemes, confirmation, StaticServiceProvider.Instance.GetRequiredService<IEventAggregator>())
+        : this(
+            userManager,
+            contextAccessor,
+            externalLogins,
+            claimsFactory,
+            optionsAccessor,
+            globalSettings,
+            logger,
+            schemes,
+            confirmation,
+            StaticServiceProvider.Instance.GetRequiredService<IEventAggregator>(),
+            StaticServiceProvider.Instance.GetRequiredService<IOptions<SecuritySettings>>())
     {
     }
 
@@ -117,7 +187,7 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
     /// <param name="redirectUrl">The external login URL users should be redirected to during the login flow.</param>
     /// <param name="userId">The current user's identifier, which will be used to provide CSRF protection.</param>
     /// <returns>A configured <see cref="AuthenticationProperties" />.</returns>
-    public override AuthenticationProperties ConfigureExternalAuthenticationProperties(string provider, string? redirectUrl, string? userId = null)
+    public override AuthenticationProperties ConfigureExternalAuthenticationProperties(string? provider, string? redirectUrl, string? userId = null)
     {
         // borrowed from https://github.com/dotnet/aspnetcore/blob/master/src/Identity/Core/src/SignInManager.cs
         // to be able to use our own XsrfKey/LoginProviderKey because the default is private :/
@@ -197,7 +267,7 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
         }
 
         //Now we need to perform the auto-link, so first we need to lookup/create a user with the email address
-        BackOfficeIdentityUser? autoLinkUser = await UserManager.FindByEmailAsync(email);
+        BackOfficeIdentityUser? autoLinkUser = await UserManager.FindByEmailAsync(email!);
         if (autoLinkUser != null)
         {
             try
@@ -228,7 +298,7 @@ public class BackOfficeSignInManager : UmbracoSignInManager<BackOfficeIdentityUs
             throw new InvalidOperationException("The Name value cannot be null");
         }
 
-        autoLinkUser = BackOfficeIdentityUser.CreateNew(_globalSettings, email, email, autoLinkOptions.GetUserAutoLinkCulture(_globalSettings), name);
+        autoLinkUser = BackOfficeIdentityUser.CreateNew(_globalSettings, email, email!, autoLinkOptions.GetUserAutoLinkCulture(_globalSettings), name);
 
         foreach (var userGroup in autoLinkOptions.DefaultUserGroups)
         {

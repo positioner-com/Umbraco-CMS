@@ -435,6 +435,13 @@ Pressione <strong>"próximo"</strong> para iniciar o assistente.]]></key>
     <key alias="renewSession">Renovar agora para salvar seu trabalho</key>
   </area>
   <area alias="login">
+    <key alias="greeting0">Bem Vindo(a)</key>
+    <key alias="greeting1">Bem Vindo(a)</key>
+    <key alias="greeting2">Bem Vindo(a)</key>
+    <key alias="greeting3">Bem Vindo(a)</key>
+    <key alias="greeting4">Bem Vindo(a)</key>
+    <key alias="greeting5">Bem Vindo(a)</key>
+    <key alias="greeting6">Bem Vindo(a)</key>
     <key alias="bottomText"><![CDATA[<p style="text-align:right;">&copy; 2001 - %0% <br /><a href="https://umbraco.com" style="text-decoration: none" target="_blank" rel="noopener">umbraco.com</a></p> ]]></key>
   </area>
   <area alias="main">
@@ -822,6 +829,8 @@ Você pode publicar esta página e todas suas sub-páginas ao selecionar <em>pub
     <key alias="usertype">Tipo de usuário</key>
     <key alias="userTypes">Tipos de usuários</key>
     <key alias="writer">Escrevente</key>
+    <key alias="sortCreateDateAscending">Mais antigo</key>
+    <key alias="sortCreateDateDescending">Mais recente</key>
   </area>
   <area alias="logViewer">
     <key alias="selectAllLogLevelFilters">Selecionar tudo</key>

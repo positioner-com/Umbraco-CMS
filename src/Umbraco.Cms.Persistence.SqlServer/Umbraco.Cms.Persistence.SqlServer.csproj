@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Take top-level depedendency on Azure.Identity, because NPoco.SqlServer depends on a vulnerable version -->
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="NPoco.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Umbraco.Infrastructure\Umbraco.Infrastructure.csproj" />
   </ItemGroup>
 

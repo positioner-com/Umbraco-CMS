@@ -57,6 +57,7 @@
     <key alias="unlock">Unlock</key>
     <key alias="createblueprint">Create Content Template</key>
     <key alias="resendInvite">Resend Invitation</key>
+    <key alias="toggleHideUnavailable">Hide unavailable options</key>
   </area>
   <area alias="actionCategories">
     <key alias="content">Content</key>
@@ -158,6 +159,12 @@
     <key alias="confirmActionConfirm">Confirm</key>
     <key alias="morePublishingOptions">More publishing options</key>
     <key alias="submitChanges">Submit</key>
+  </area>
+  <area alias="auditTrailsMedia">
+    <key alias="delete">Media deleted</key>
+    <key alias="move">Media moved</key>
+    <key alias="copy">Media copied</key>
+    <key alias="save">Media saved</key>
   </area>
   <area alias="auditTrails">
     <key alias="atViewingFor">Viewing for</key>
@@ -327,6 +334,7 @@
     <key alias="variantSendForApprovalNotAllowed">Send for approval is not allowed</key>
     <key alias="variantScheduleNotAllowed">Schedule is not allowed</key>
     <key alias="variantUnpublishNotAllowed">Unpublish is not allowed</key>
+    <key alias="selectAllVariants">Select all variants</key>
   </area>
   <area alias="blueprints">
     <key alias="createBlueprintFrom"><![CDATA[Create a new Content Template from <em>%0%</em>]]></key>
@@ -352,6 +360,7 @@
     <key alias="renameFolderFailed">Failed to rename the folder with id %0%</key>
     <key alias="dragAndDropYourFilesIntoTheArea">Drag and drop your file(s) into the area</key>
     <key alias="uploadNotAllowed">Upload is not allowed in this location.</key>
+    <key alias="fileSecurityValidationFailure">One or more file security validations have failed</key>
   </area>
   <area alias="member">
     <key alias="createNewMember">Create a new member</key>
@@ -410,7 +419,7 @@
     </key>
     <key alias="elementType">Element Type</key>
     <key alias="elementTypeDescription">Defines the schema for a repeating set of properties, for example, in a 'Block
-      List' or 'Nested Content' property editor.
+      List' or 'Block Grid' property editor.
     </key>
     <key alias="composition">Composition</key>
     <key alias="compositionDescription">Defines a re-usable set of properties that can be included in the definition of
@@ -493,9 +502,10 @@
     <key alias="confirmlogout">Are you sure?</key>
     <key alias="confirmSure">Are you sure?</key>
     <key alias="cut">Cut</key>
-    <key alias="editdictionary">Edit Dictionary Item</key>
-    <key alias="editlanguage">Edit Language</key>
+    <key alias="editDictionary">Edit dictionary item</key>
+    <key alias="editLanguage">Edit language</key>
     <key alias="editSelectedMedia">Edit selected media</key>
+    <key alias="editWebhook">Edit webhook</key>
     <key alias="insertAnchor">Insert local link</key>
     <key alias="insertCharacter">Insert character</key>
     <key alias="insertgraphicheadline">Insert graphic headline</key>
@@ -503,7 +513,7 @@
     <key alias="insertlink">Insert link</key>
     <key alias="insertMacro">Click to add a Macro</key>
     <key alias="inserttable">Insert table</key>
-    <key alias="languagedeletewarning">This will delete the language</key>
+    <key alias="languagedeletewarning">This will delete the language and all content related to the language</key>
     <key alias="languageChangeWarning">Changing the culture for a language may be an expensive operation and will result
       in the content cache and indexes being rebuilt
     </key>
@@ -549,6 +559,7 @@
     <key alias="openInNewWindow">Opens the linked document in a new window or tab</key>
     <key alias="linkToMedia">Link to media</key>
     <key alias="selectContentStartNode">Select content start node</key>
+    <key alias="selectEvent">Select event</key>
     <key alias="selectMedia">Select media</key>
     <key alias="selectMediaType">Select media type</key>
     <key alias="selectIcon">Select icon</key>
@@ -644,6 +655,8 @@
     </key>
     <key alias="indexCannotRebuild">This index cannot be rebuilt because it has no assigned</key>
     <key alias="iIndexPopulator">IIndexPopulator</key>
+    <key alias="noResults">No results were found</key>
+    <key alias="searchResultsFound">Showing %0% - %1% of %2% result(s) - Page %3% of %4%</key>
   </area>
   <area alias="placeholders">
     <key alias="username">Enter your username</key>
@@ -757,6 +770,7 @@
     <key alias="by">by</key>
     <key alias="cancel">Cancel</key>
     <key alias="cellMargin">Cell margin</key>
+    <key alias="change">Change</key>
     <key alias="choose">Choose</key>
     <key alias="clear">Clear</key>
     <key alias="close">Close</key>
@@ -910,6 +924,7 @@
     <key alias="lastUpdated">Last Updated</key>
     <key alias="skipToMenu">Skip to menu</key>
     <key alias="skipToContent">Skip to content</key>
+    <key alias="primary">Primary</key>
   </area>
   <area alias="colors">
     <key alias="blue">Blue</key>
@@ -1083,16 +1098,17 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="renewSession">Renew now to save your work</key>
   </area>
   <area alias="login">
-    <key alias="greeting0">Happy super Sunday</key>
-    <key alias="greeting1">Happy marvelous Monday</key>
-    <key alias="greeting2">Happy tubular Tuesday</key>
-    <key alias="greeting3">Happy wonderful Wednesday</key>
-    <key alias="greeting4">Happy thunderous Thursday</key>
-    <key alias="greeting5">Happy funky Friday</key>
-    <key alias="greeting6">Happy Caturday</key>
+    <key alias="greeting0">Welcome</key>
+    <key alias="greeting1">Welcome</key>
+    <key alias="greeting2">Welcome</key>
+    <key alias="greeting3">Welcome</key>
+    <key alias="greeting4">Welcome</key>
+    <key alias="greeting5">Welcome</key>
+    <key alias="greeting6">Welcome</key>
     <key alias="instruction">Log in below</key>
     <key alias="signInWith">Sign in with</key>
     <key alias="timeout">Session timed out</key>
+    <key alias="userFailedLogin">Oops! We couldn't log you in. Please check your credentials and try again.</key>
     <key alias="bottomText">
       <![CDATA[<p style="text-align:right;">&copy; 2001 - %0% <br /><a href="https://umbraco.com" style="text-decoration: none" target="_blank" rel="noopener">Umbraco.com</a></p> ]]></key>
     <key alias="forgottenPassword">Forgotten password?</key>
@@ -1190,6 +1206,8 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
 </body>
 </html>
 	]]>    </key>
+    <key alias="mfaSecurityCodeSubject">Umbraco: Security Code</key>
+    <key alias="mfaSecurityCodeMessage">Your security code is: %0%</key>
     <key alias="2faTitle">One last step</key>
     <key alias="2faText">You have enabled 2-factor authentication and must verify your identity.</key>
     <key alias="2faMultipleText">Please choose a 2-factor provider</key>
@@ -1455,6 +1473,44 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="allowedItemTypes">You can only select items of type(s): %0%</key>
     <key alias="pickedTrashedItem">You have picked a content item currently deleted or in the recycle bin</key>
     <key alias="pickedTrashedItems">You have picked content items currently deleted or in the recycle bin</key>
+    <key alias="specifyPickerRootTitle">Specify root</key>
+    <key alias="defineRootNode">Pick root node</key>
+    <key alias="defineXPathOrigin">Specify root via XPath</key>
+    <key alias="defineDynamicRoot">Specify a Dynamic Root</key>
+    <key alias="configurationStartNodeTitle">Start node</key>
+    <key alias="configurationXPathTitle">XPath Query</key>
+  </area>
+  <area alias="dynamicRoot">
+    <key alias="configurationTitle">Dynamic Root Query</key>
+    <key alias="pickDynamicRootOriginTitle">Pick origin</key>
+    <key alias="pickDynamicRootOriginDesc">Define the origin for your Dynamic Root Query</key>
+    <key alias="originRootTitle">Root</key>
+    <key alias="originRootDesc">Root node of this editing session</key>
+    <key alias="originParentTitle">Parent</key>
+    <key alias="originParentDesc">The parent node of the source in this editing session</key>
+    <key alias="originCurrentTitle">Current</key>
+    <key alias="originCurrentDesc">The content node that is source for this editing session</key>
+    <key alias="originSiteTitle">Site</key>
+    <key alias="originSiteDesc">Find nearest node with a hostname</key>
+    <key alias="originByKeyTitle">Specific Node</key>
+    <key alias="originByKeyDesc">Pick a specific Node as the origin for this query</key>
+    <key alias="pickDynamicRootQueryStepTitle">Append step to query</key>
+    <key alias="pickDynamicRootQueryStepDesc">Define the next step of your Dynamic Root Query</key>
+    <key alias="queryStepNearestAncestorOrSelfTitle">Nearest Ancestor Or Self</key>
+    <key alias="queryStepNearestAncestorOrSelfDesc">Query the nearest ancestor or self that fits with one of the configured types</key>
+    <key alias="queryStepFurthestAncestorOrSelfTitle">Furthest Ancestor Or Self</key>
+    <key alias="queryStepFurthestAncestorOrSelfDesc">Query the Furthest ancestor or self that fits with one of the configured types</key>
+    <key alias="queryStepNearestDescendantOrSelfTitle">Nearest Descendant Or Self</key>
+    <key alias="queryStepNearestDescendantOrSelfDesc">Query the nearest descendant or self that fits with one of the configured types</key>
+    <key alias="queryStepFurthestDescendantOrSelfTitle">Furthest Descendant Or Self</key>
+    <key alias="queryStepFurthestDescendantOrSelfDesc">Query the Furthest descendant or self that fits with one of the configured types</key>
+    <key alias="queryStepCustomTitle">Custom</key>
+    <key alias="queryStepCustomDesc">Query the using a custom Query Step</key>
+    <key alias="addQueryStep">Add query step</key>
+    <key alias="queryStepTypes">That matches types: </key>
+    <key alias="noValidStartNodeTitle">No matching content</key>
+    <key alias="noValidStartNodeDesc">The configuration of this property does not match any content. Create the missing content or contact your administrator to adjust the Dynamic Root settings for this property.</key>
+    <key alias="cancelAndClearQuery">Cancel and clear query</key>
   </area>
   <area alias="mediaPicker">
     <key alias="deletedItem">Deleted item</key>
@@ -1495,7 +1551,9 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
   </area>
   <area alias="rollback">
     <key alias="changes">Changes</key>
+    <key alias="created">Created</key>
     <key alias="headline">Select a version to compare with the current version</key>
+    <key alias="currentVersion">Current version</key>
     <key alias="diffHelp">
       <![CDATA[This shows the differences between the current (draft) version and the selected version<br /><del>Red text</del> will be removed in the selected version, <ins>green text</ins> will be added]]></key>
     <key alias="noDiff">There are no differences between the current (draft) version and the selected version</key>
@@ -1508,6 +1566,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="view">View</key>
     <key alias="pagination"><![CDATA[Showing version %0% to %1% of %2% versions]]></key>
     <key alias="versions">Versions</key>
+    <key alias="currentDraftVersion">Current draft version</key>
     <key alias="currentPublishedVersion">Current published version</key>
   </area>
   <area alias="scripts">
@@ -1677,6 +1736,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="preventCleanupDisableError">An error occurred while disabling version cleanup for %0%</key>
     <key alias="copySuccessMessage">Your system information has successfully been copied to the clipboard</key>
     <key alias="cannotCopyInformation">Could not copy your system information to the clipboard</key>
+    <key alias="webhookSaved">Webhook saved</key>
   </area>
   <area alias="stylesheet">
     <key alias="addRule">Add style</key>
@@ -1861,14 +1921,14 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
       type.
     </key>
     <key alias="chooseChildNode">Choose child node</key>
-    <key alias="compositionsDescription">Inherit tabs and properties from an existing Document Type. New tabs will be
-      added to the current Document Type or merged if a tab with an identical name exists.
+    <key alias="compositionsDescription">Inherit tabs and properties from an existing Content Type. New tabs will be
+      added to the current Content Type or merged if a tab with an identical name exists.
     </key>
     <key alias="compositionInUse">This Content Type is used in a composition, and therefore cannot be composed itself.
     </key>
     <key alias="noAvailableCompositions">There are no Content Types available to use as a composition.</key>
     <key alias="compositionRemoveWarning">Removing a composition will delete all the associated property data. Once you
-      save the Document Type there's no way back.
+      save the Content Type there's no way back.
     </key>
     <key alias="availableEditors">Create new</key>
     <key alias="reuse">Use existing</key>
@@ -1924,7 +1984,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="allowVaryBySegment">Allow segmentation</key>
     <key alias="elementType">Element Type</key>
     <key alias="elementHeading">Is an Element Type</key>
-    <key alias="elementDescription">An Element Type is meant to be used for instance in Nested Content, and not in the
+    <key alias="elementDescription">An Element Type is meant to be used within other Document Types, and not in the Content
       tree.
     </key>
     <key alias="elementCannotToggle">A Document Type cannot be changed to an Element Type once it has been used to
@@ -1957,6 +2017,33 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="historyCleanupEnableCleanup">Enable cleanup</key>
     <key alias="historyCleanupGloballyDisabled"><![CDATA[<strong>NOTE!</strong> The cleanup of historically content versions are disabled globally. These settings will not take effect before it is enabled.]]></key>
     <key alias="changeDataTypeHelpText">Changing a data type with stored values is disabled. To allow this you can change the Umbraco:CMS:DataTypes:CanBeChanged setting in appsettings.json.</key>
+  </area>
+  <area alias="webhooks">
+    <key alias="addWebhook">Create webhook</key>
+    <key alias="addWebhookHeader">Add webhook header</key>
+    <key alias="addDocumentType">Add Document Type</key>
+    <key alias="addMediaType">Add Media Type</key>
+    <key alias="createHeader">Create header</key>
+    <key alias="deliveries">Deliveries</key>
+    <key alias="noHeaders">No webhook headers have been added</key>
+    <key alias="noEventsFound">No events were found.</key>
+    <key alias="enabled">Enabled</key>
+    <key alias="events">Events</key>
+    <key alias="event">Event</key>
+    <key alias="url">Url</key>
+    <key alias="types">Types</key>
+    <key alias="webhookKey">Webhook key</key>
+    <key alias="retryCount">Retry count</key>
+    <key alias="toggleDebug">Toggle debug mode for more information.</key>
+    <key alias="statusNotOk">Not OK status code</key>
+    <key alias="urlDescription">The url to call when the webhook is triggered.</key>
+    <key alias="eventDescription">The events for which the webhook should be triggered.</key>
+    <key alias="contentTypeDescription">Only trigger the webhook for a specific content type.</key>
+    <key alias="enabledDescription">Is the webhook enabled?</key>
+    <key alias="headersDescription">Custom headers to include in the webhook request.</key>
+    <key alias="contentType">Content Type</key>
+    <key alias="headers">Headers</key>
+    <key alias="selectEventFirst">Please select an event first.</key>
   </area>
   <area alias="languages">
     <key alias="addLanguage">Add language</key>
@@ -2102,6 +2189,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="settingsGroup">Settings</key>
     <key alias="templatingGroup">Templating</key>
     <key alias="thirdPartyGroup">Third Party</key>
+    <key alias="webhooks">Webhooks</key>
   </area>
   <area alias="update">
     <key alias="updateAvailable">New update ready</key>
@@ -2218,13 +2306,10 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
       Umbraco.
     </key>
     <key alias="userinviteWelcomeMessage">Hello there and welcome to Umbraco! In just 1 minute you’ll be good to go, we
-      just need you to setup a password and add a picture for your avatar.
+      just need you to setup a password.
     </key>
     <key alias="userinviteExpiredMessage">Welcome to Umbraco! Unfortunately your invite has expired. Please contact your
       administrator and ask them to resend it.
-    </key>
-    <key alias="userinviteAvatarMessage">Uploading a photo of yourself will make it easy for other users to recognize
-      you. Click the circle above to upload your photo.
     </key>
     <key alias="writer">Writer</key>
     <key alias="configureTwoFactor">Configure Two-Factor</key>
@@ -2340,8 +2425,8 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="stateInactive">Inactive</key>
     <key alias="sortNameAscending">Name (A-Z)</key>
     <key alias="sortNameDescending">Name (Z-A)</key>
-    <key alias="sortCreateDateAscending">Newest</key>
-    <key alias="sortCreateDateDescending">Oldest</key>
+    <key alias="sortCreateDateAscending">Oldest</key>
+    <key alias="sortCreateDateDescending">Newest</key>
     <key alias="sortLastLoginDateDescending">Last login</key>
     <key alias="noUserGroupsAdded">No user groups have been added</key>
     <key alias="2faDisableText">If you wish to disable this two-factor provider, then you must enter the code shown on your authentication device:</key>
@@ -2366,7 +2451,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="items">items</key>
     <key alias="urls">URL(s)</key>
     <key alias="urlsSelected">URL(s) selected</key>
-    <key alias="itemsSelected">items selected</key>
+    <key alias="itemsSelected">item(s) selected</key>
     <key alias="invalidDate">Invalid date</key>
     <key alias="invalidNumber">Not a number</key>
     <key alias="invalidNumberStepSize">Not a valid numeric step size</key>
@@ -2460,7 +2545,9 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="hSTSCheckHeaderNotFoundOnLocalhost">
       <![CDATA[The header <strong>Strict-Transport-Security</strong> was not found. This header should not be present on localhost.]]>
     </key>
-    <key alias="xssProtectionCheckHeaderFound"><![CDATA[The header <strong>X-XSS-Protection</strong> was found.]]></key>
+    <key alias="xssProtectionCheckHeaderFound">
+      <![CDATA[The header <strong>X-XSS-Protection</strong> was found. <strong>It is recommended not to add this header to your website</strong>.<br />
+    You can read about this on the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection" target="_blank" rel="noopener" class="btn-link -underline">Mozilla</a> website ]]></key>
     <key alias="xssProtectionCheckHeaderNotFound">
       <![CDATA[The header <strong>X-XSS-Protection</strong> was not found.]]></key>
     <!-- The following key get these tokens passed in:
@@ -2617,6 +2704,8 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="addImageCaption">Add image caption</key>
     <key alias="searchContentTree">Search content tree</key>
     <key alias="maxAmount">Maximum amount</key>
+    <key alias="expandChildItems">Expand child items for</key>
+    <key alias="openContextNode">Open context node for</key>
   </area>
   <area alias="references">
     <key alias="tabName">References</key>
@@ -2896,7 +2985,7 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="allowBlockInRoot">Allow in root</key>
     <key alias="allowBlockInRootHelp">Make this block available in the root of the layout.</key>
     <key alias="allowBlockInAreas">Allow in areas</key>
-    <key alias="allowBlockInAreasHelp">Make this block available for use within the areas of other Blocks (unless explicit permissions are set for these areas).</key>
+    <key alias="allowBlockInAreasHelp">Make this block available by default within the areas of other Blocks (unless explicit permissions are set for these areas).</key>
     <key alias="areaAllowedBlocksEmpty">By default, all block types are allowed in an Area, Use this option to allow only selected types.</key>
     <key alias="areas">Areas</key>
     <key alias="areasLayoutColumns">Grid Columns for Areas</key>
@@ -2934,6 +3023,8 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
     <key alias="configureArea">Configure area</key>
     <key alias="deleteArea">Delete area</key>
     <key alias="addColumnSpanOption">Add spanning %0% columns option</key>
+    <key alias="insertBlock">Insert Block</key>
+    <key alias="labelInlineMode">Display inline with text</key>
   </area>
   <area alias="contentTemplatesDashboard">
     <key alias="whatHeadline">What are Content Templates?</key>
@@ -3005,9 +3096,9 @@ To manage your website, simply open the Umbraco backoffice and start adding cont
           We will send:
           <ul>
             <li>Anonymized site ID, Umbraco version, and packages installed.</li>
-            <li>Number of: Root nodes, Content nodes, Macros, Media, Document Types, Templates, Languages, Domains, User Group, Users, Members, Backoffice external login providers, and Property Editors in use.</li>
+            <li>Number of: Root nodes, Content nodes, Macros, Media, Document Types, Property Types, Compositions, Templates, Languages, Domains, User Group, Users, Members, Backoffice external login providers, Webhooks, rich text datatypes, blocks used in rich text datatypes, and Property Editors in use.</li>
             <li>System information: Webserver, server OS, server framework, server OS language, and database provider.</li>
-            <li>Configuration settings: Modelsbuilder mode, if custom Umbraco path exists, ASP environment, and if you are in debug mode.</li>
+            <li>Configuration settings: Modelsbuilder mode, if custom Umbraco path exists, ASP environment, whether the delivery API is enabled, and allows public access, and if you are in debug mode.</li>
           </ul>
           <em>We might change what we send on the Detailed level in the future. If so, it will be listed above.
           <br>By choosing "Detailed" you agree to current and future anonymized information being collected.</em>

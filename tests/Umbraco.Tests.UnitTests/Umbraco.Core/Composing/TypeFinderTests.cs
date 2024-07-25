@@ -1,7 +1,6 @@
 // Copyright (c) Umbraco.
 // See LICENSE for more details.
 
-using System;
 using System.Linq;
 using System.Reflection;
 using System.Xml;
@@ -56,10 +55,10 @@ public class TypeFinderTests
         Assert.AreEqual(0, typesFound.Count()); // 0 classes in _assemblies are marked with [Tree]
 
         typesFound = typeFinder.FindClassesWithAttribute<TreeAttribute>(new[] { typeof(TreeAttribute).Assembly });
-        Assert.AreEqual(23, typesFound.Count()); // + classes in Umbraco.Web are marked with [Tree]
+        Assert.AreEqual(24, typesFound.Count()); // + classes in Umbraco.Web are marked with [Tree]
 
         typesFound = typeFinder.FindClassesWithAttribute<TreeAttribute>();
-        Assert.AreEqual(23, typesFound.Count()); // + classes in Umbraco.Web are marked with [Tree]
+        Assert.AreEqual(24, typesFound.Count()); // + classes in Umbraco.Web are marked with [Tree]
     }
 
     [AttributeUsage(AttributeTargets.Class)]

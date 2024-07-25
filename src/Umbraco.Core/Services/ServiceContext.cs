@@ -1,4 +1,4 @@
-namespace Umbraco.Cms.Core.Services;
+﻿namespace Umbraco.Cms.Core.Services;
 
 /// <summary>
 ///     Represents the Umbraco Service context, which provides access to all services.
@@ -13,7 +13,7 @@ public class ServiceContext
     private readonly Lazy<IDataTypeService>? _dataTypeService;
     private readonly Lazy<IDomainService>? _domainService;
     private readonly Lazy<IEntityService>? _entityService;
-    private readonly Lazy<IExternalLoginService>? _externalLoginService;
+    private readonly Lazy<IExternalLoginWithKeyService>? _externalLoginService;
     private readonly Lazy<IFileService>? _fileService;
     private readonly Lazy<IKeyValueService>? _keyValueService;
     private readonly Lazy<ILocalizationService>? _localizationService;
@@ -32,6 +32,7 @@ public class ServiceContext
     private readonly Lazy<IServerRegistrationService>? _serverRegistrationService;
     private readonly Lazy<ITagService>? _tagService;
     private readonly Lazy<IUserService>? _userService;
+    private readonly Lazy<IWebhookService>? _webhookService;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ServiceContext" /> class with lazy services.
@@ -59,11 +60,12 @@ public class ServiceContext
         Lazy<IMemberTypeService>? memberTypeService,
         Lazy<IMemberGroupService>? memberGroupService,
         Lazy<INotificationService>? notificationService,
-        Lazy<IExternalLoginService>? externalLoginService,
+        Lazy<IExternalLoginWithKeyService>? externalLoginService,
         Lazy<IRedirectUrlService>? redirectUrlService,
         Lazy<IConsentService>? consentService,
         Lazy<IKeyValueService>? keyValueService,
-        Lazy<IContentTypeBaseServiceProvider>? contentTypeBaseServiceProvider)
+        Lazy<IContentTypeBaseServiceProvider>? contentTypeBaseServiceProvider,
+        Lazy<IWebhookService>? webhookService)
     {
         _publicAccessService = publicAccessService;
         _domainService = domainService;
@@ -92,6 +94,7 @@ public class ServiceContext
         _consentService = consentService;
         _keyValueService = keyValueService;
         _contentTypeBaseServiceProvider = contentTypeBaseServiceProvider;
+        _webhookService = webhookService;
     }
 
     /// <summary>
@@ -207,7 +210,7 @@ public class ServiceContext
     /// <summary>
     ///     Gets the ExternalLoginService.
     /// </summary>
-    public IExternalLoginService? ExternalLoginService => _externalLoginService?.Value;
+    public IExternalLoginWithKeyService? ExternalLoginService => _externalLoginService?.Value;
 
     /// <summary>
     ///     Gets the RedirectUrlService.
@@ -228,6 +231,11 @@ public class ServiceContext
     ///     Gets the ContentTypeServiceBaseFactory.
     /// </summary>
     public IContentTypeBaseServiceProvider? ContentTypeBaseServices => _contentTypeBaseServiceProvider?.Value;
+
+    /// <summary>
+    ///     Gets the WebhookService.
+    /// </summary>
+    public IWebhookService? WebhookService => _webhookService?.Value;
 
     /// <summary>
     ///     Creates a partial service context with only some services (for tests).
@@ -257,12 +265,13 @@ public class ServiceContext
         IDomainService? domainService = null,
         IMacroService? macroService = null,
         IPublicAccessService? publicAccessService = null,
-        IExternalLoginService? externalLoginService = null,
+        IExternalLoginWithKeyService? externalLoginService = null,
         IServerRegistrationService? serverRegistrationService = null,
         IRedirectUrlService? redirectUrlService = null,
         IConsentService? consentService = null,
         IKeyValueService? keyValueService = null,
-        IContentTypeBaseServiceProvider? contentTypeBaseServiceProvider = null)
+        IContentTypeBaseServiceProvider? contentTypeBaseServiceProvider = null,
+        IWebhookService? webhookService = null)
     {
         Lazy<T>? Lazy<T>(T? service)
         {
@@ -296,6 +305,8 @@ public class ServiceContext
             Lazy(redirectUrlService),
             Lazy(consentService),
             Lazy(keyValueService),
-            Lazy(contentTypeBaseServiceProvider));
+            Lazy(contentTypeBaseServiceProvider),
+            Lazy(webhookService)
+            );
     }
 }

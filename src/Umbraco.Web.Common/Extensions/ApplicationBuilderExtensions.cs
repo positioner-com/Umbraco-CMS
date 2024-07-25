@@ -2,18 +2,24 @@ using Dazinator.Extensions.FileProviders.PrependBasePath;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Serilog.Context;
 using StackExchange.Profiling;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Cms.Core.Exceptions;
 using Umbraco.Cms.Core.Extensions;
+using Umbraco.Cms.Core.IO;
 using Umbraco.Cms.Core.Logging.Serilog.Enrichers;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
+using Umbraco.Cms.Web.Common.Media;
 using Umbraco.Cms.Web.Common.Middleware;
 using Umbraco.Cms.Web.Common.Plugins;
+using IHostingEnvironment = Umbraco.Cms.Core.Hosting.IHostingEnvironment;
 
 namespace Umbraco.Extensions;
 
@@ -26,7 +32,21 @@ public static class ApplicationBuilderExtensions
     ///     Configures and use services required for using Umbraco
     /// </summary>
     public static IUmbracoApplicationBuilder UseUmbraco(this IApplicationBuilder app)
-        => new UmbracoApplicationBuilder(app);
+    {
+        // Ensure Umbraco is booted and StaticServiceProvider.Instance is set before continuing
+        IRuntimeState runtimeState = app.ApplicationServices.GetRequiredService<IRuntimeState>();
+        if (runtimeState.Level == RuntimeLevel.Unknown)
+        {
+            throw new BootFailedException("The runtime level is unknown, please make sure Umbraco is booted by adding `await app.BootUmbracoAsync();` just after `WebApplication app = builder.Build();` in your Program.cs file.");
+        }
+
+        if (StaticServiceProvider.Instance is null)
+        {
+            throw new BootFailedException("StaticServiceProvider.Instance is not set, please make sure ConfigureUmbracoDefaults() is added in your Program.cs file.");
+        }
+
+        return new UmbracoApplicationBuilder(app);
+    }
 
     /// <summary>
     ///     Returns true if Umbraco <see cref="IRuntimeState" /> is greater than <see cref="RuntimeLevel.BootFailed" />
@@ -110,8 +130,6 @@ public static class ApplicationBuilderExtensions
     /// <summary>
     ///     Allow static file access for App_Plugins folders
     /// </summary>
-    /// <param name="app"></param>
-    /// <returns></returns>
     public static IApplicationBuilder UseUmbracoPluginsStaticFiles(this IApplicationBuilder app)
     {
         IHostEnvironment hostingEnvironment = app.ApplicationServices.GetRequiredService<IHostEnvironment>();
@@ -132,6 +150,33 @@ public static class ApplicationBuilderExtensions
             {
                 webHostEnvironment.WebRootFileProvider = webHostEnvironment.WebRootFileProvider.ConcatComposite(
                     new PrependBasePathFileProvider(Constants.SystemDirectories.AppPlugins, pluginFileProvider));
+            }
+        }
+
+        return app;
+    }
+
+    /// <summary>
+    ///     Configure custom umbraco file provider for media
+    /// </summary>
+    public static IApplicationBuilder UseUmbracoMediaFileProvider(this IApplicationBuilder app)
+    {
+        // Get media file provider and request path/URL
+        MediaFileManager mediaFileManager = app.ApplicationServices.GetRequiredService<MediaFileManager>();
+        if (mediaFileManager.FileSystem.TryCreateFileProvider(out IFileProvider? mediaFileProvider))
+        {
+            GlobalSettings globalSettings =
+                app.ApplicationServices.GetRequiredService<IOptions<GlobalSettings>>().Value;
+            IHostingEnvironment? hostingEnvironment = app.ApplicationServices.GetService<IHostingEnvironment>();
+            var mediaRequestPath = hostingEnvironment?.ToAbsolute(globalSettings.UmbracoMediaPath);
+
+            // Configure custom file provider for media
+            IWebHostEnvironment? webHostEnvironment = app.ApplicationServices.GetService<IWebHostEnvironment>();
+            if (webHostEnvironment is not null)
+            {
+                webHostEnvironment.WebRootFileProvider =
+                    webHostEnvironment.WebRootFileProvider.ConcatComposite(
+                        new MediaPrependBasePathFileProvider(mediaRequestPath, mediaFileProvider));
             }
         }
 

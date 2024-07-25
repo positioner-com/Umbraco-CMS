@@ -129,6 +129,7 @@ public class PublishedContentQuery : IPublishedContentQuery
         return null;
     }
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public IPublishedContent? ContentSingleAtXPath(string xpath, params XPathVariable[] vars)
         => ItemByXPath(xpath, vars, _publishedSnapshot.Content);
 
@@ -141,9 +142,11 @@ public class PublishedContentQuery : IPublishedContentQuery
     public IEnumerable<IPublishedContent> Content(IEnumerable<object> ids)
         => ids.Select(Content).WhereNotNull();
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public IEnumerable<IPublishedContent> ContentAtXPath(string xpath, params XPathVariable[] vars)
         => ItemsByXPath(xpath, vars, _publishedSnapshot.Content);
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public IEnumerable<IPublishedContent> ContentAtXPath(XPathExpression xpath, params XPathVariable[] vars)
         => ItemsByXPath(xpath, vars, _publishedSnapshot.Content);
 
@@ -290,21 +293,17 @@ public class PublishedContentQuery : IPublishedContentQuery
             var fields =
                 umbIndex.GetCultureAndInvariantFields(culture)
                     .ToArray(); // Get all index fields suffixed with the culture name supplied
-            ordering = query.ManagedQuery(term, fields);
+
+            // Filter out unpublished content for the specified culture if the content varies by culture
+            // The published__{culture} field is not populated when the content is not published in that culture
+            ordering = query
+                .ManagedQuery(term, fields)
+                .Not().Group(q => q
+                    .Field(UmbracoExamineFieldNames.VariesByCultureFieldName, "y")
+                    .Not().Field($"{UmbracoExamineFieldNames.PublishedFieldName}_{culture.ToLowerInvariant()}", "y"));
         }
 
-            // Filter selected fields because results are loaded from the published snapshot based on these
-            IOrdering? queryExecutor = ordering.SelectFields(_returnedQueryFields);
-
-
-        ISearchResults? results = skip == 0 && take == 0
-            ? queryExecutor.Execute()
-            : queryExecutor.Execute(QueryOptions.SkipTake(skip, take));
-
-        totalRecords = results.TotalItemCount;
-
-        return new CultureContextualSearchResults(results.ToPublishedSearchResults(_publishedSnapshot.Content),
-            _variationContextAccessor, culture);
+        return Search(ordering, skip, take, out totalRecords, culture);
     }
 
     /// <inheritdoc />
@@ -313,6 +312,10 @@ public class PublishedContentQuery : IPublishedContentQuery
 
     /// <inheritdoc />
     public IEnumerable<PublishedSearchResult> Search(IQueryExecutor query, int skip, int take, out long totalRecords)
+        => Search(query, skip, take, out totalRecords, null);
+
+    /// <inheritdoc />
+    public IEnumerable<PublishedSearchResult> Search(IQueryExecutor query, int skip, int take, out long totalRecords, string? culture)
     {
         if (skip < 0)
         {
@@ -328,8 +331,8 @@ public class PublishedContentQuery : IPublishedContentQuery
 
         if (query is IOrdering ordering)
         {
-                // Filter selected fields because results are loaded from the published snapshot based on these
-                query = ordering.SelectFields(_returnedQueryFields);
+            // Filter selected fields because results are loaded from the published snapshot based on these
+            query = ordering.SelectFields(_returnedQueryFields);
         }
 
         ISearchResults? results = skip == 0 && take == 0
@@ -338,7 +341,9 @@ public class PublishedContentQuery : IPublishedContentQuery
 
         totalRecords = results.TotalItemCount;
 
-        return results.ToPublishedSearchResults(_publishedSnapshot);
+        return culture.IsNullOrWhiteSpace()
+            ? results.ToPublishedSearchResults(_publishedSnapshot)
+            : new CultureContextualSearchResults(results.ToPublishedSearchResults(_publishedSnapshot.Content), _variationContextAccessor, culture);
     }
 
     /// <summary>

@@ -2,26 +2,34 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Umbraco.Cms.Core.Cache;
+using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Extensions;
 
 namespace Umbraco.Cms.Web.Common.Security;
 
 /// <summary>
-///     Abstract sign in manager implementation allowing modifying all defeault authentication schemes
+///     Abstract sign in manager implementation allowing modifying all default authentication schemes.
 /// </summary>
 /// <typeparam name="TUser"></typeparam>
 public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
     where TUser : UmbracoIdentityUser
 {
+    private readonly IRequestCache _requestCache;
+    private SecuritySettings _securitySettings;
+
     // borrowed from https://github.com/dotnet/aspnetcore/blob/master/src/Identity/Core/src/SignInManager.cs
     protected const string UmbracoSignInMgrLoginProviderKey = "LoginProvider";
 
     // borrowed from https://github.com/dotnet/aspnetcore/blob/master/src/Identity/Core/src/SignInManager.cs
     protected const string UmbracoSignInMgrXsrfKey = "XsrfId";
 
+    [Obsolete("Use non-obsolete constructor. This is scheduled for removal in V14.")]
     public UmbracoSignInManager(
         UserManager<TUser> userManager,
         IHttpContextAccessor contextAccessor,
@@ -30,8 +38,56 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
         ILogger<SignInManager<TUser>> logger,
         IAuthenticationSchemeProvider schemes,
         IUserConfirmation<TUser> confirmation)
+        : this(
+            userManager,
+            contextAccessor,
+            claimsFactory,
+            optionsAccessor,
+            logger,
+            schemes,
+            confirmation,
+            StaticServiceProvider.Instance.GetRequiredService<IOptions<SecuritySettings>>(),
+            StaticServiceProvider.Instance.GetRequiredService<IRequestCache>())
+    {
+    }
+
+    [Obsolete("Use non-obsolete constructor. This is scheduled for removal in V15.")]
+    public UmbracoSignInManager(
+        UserManager<TUser> userManager,
+        IHttpContextAccessor contextAccessor,
+        IUserClaimsPrincipalFactory<TUser> claimsFactory,
+        IOptions<IdentityOptions> optionsAccessor,
+        ILogger<SignInManager<TUser>> logger,
+        IAuthenticationSchemeProvider schemes,
+        IUserConfirmation<TUser> confirmation,
+        IOptions<SecuritySettings> securitySettingsOptions)
+        : this(
+            userManager,
+            contextAccessor,
+            claimsFactory,
+            optionsAccessor,
+            logger,
+            schemes,
+            confirmation,
+            securitySettingsOptions,
+            StaticServiceProvider.Instance.GetRequiredService<IRequestCache>())
+    {
+    }
+
+    public UmbracoSignInManager(
+        UserManager<TUser> userManager,
+        IHttpContextAccessor contextAccessor,
+        IUserClaimsPrincipalFactory<TUser> claimsFactory,
+        IOptions<IdentityOptions> optionsAccessor,
+        ILogger<SignInManager<TUser>> logger,
+        IAuthenticationSchemeProvider schemes,
+        IUserConfirmation<TUser> confirmation,
+        IOptions<SecuritySettings> securitySettingsOptions,
+        IRequestCache requestCache)
         : base(userManager, contextAccessor, claimsFactory, optionsAccessor, logger, schemes, confirmation)
     {
+        _requestCache = requestCache;
+        _securitySettings = securitySettingsOptions.Value;
     }
 
     protected abstract string AuthenticationType { get; }
@@ -47,7 +103,7 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
     {
         // override to handle logging/events
         SignInResult result = await base.PasswordSignInAsync(user, password, isPersistent, lockoutOnFailure);
-        return await HandleSignIn(user, user.UserName, result);
+        return result;
     }
 
     /// <inheritdoc />
@@ -59,8 +115,11 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
         IDictionary<string, string?>? items = auth.Properties?.Items;
         if (auth.Principal == null || items == null)
         {
-            Logger.LogDebug(
+            if (Logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                Logger.LogDebug(
                 "The external login authentication failed. No user Principal or authentication items was resolved.");
+            }
             return null;
         }
 
@@ -86,7 +145,7 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
 
         var providerKey = auth.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
         var provider = items[UmbracoSignInMgrLoginProviderKey];
-        if (providerKey == null || provider == null)
+        if (providerKey is null || provider is null)
         {
             return null;
         }
@@ -102,14 +161,14 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
     }
 
     /// <inheritdoc />
-    public override async Task<TUser> GetTwoFactorAuthenticationUserAsync()
+    public override async Task<TUser?> GetTwoFactorAuthenticationUserAsync()
     {
         // borrowed from https://github.com/dotnet/aspnetcore/blob/master/src/Identity/Core/src/SignInManager.cs
         // replaced in order to use a custom auth type
         TwoFactorAuthenticationInfo? info = await RetrieveTwoFactorInfoAsync();
-        if (info == null)
+        if (info?.UserId is null)
         {
-            return null!;
+            return null;
         }
 
         return await UserManager.FindByIdAsync(info.UserId);
@@ -142,7 +201,7 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
     }
 
     /// <inheritdoc />
-    public override async Task<SignInResult> TwoFactorSignInAsync(string? provider, string? code, bool isPersistent, bool rememberClient)
+    public override async Task<SignInResult> TwoFactorSignInAsync(string provider, string code, bool isPersistent, bool rememberClient)
     {
         // borrowed from https://github.com/dotnet/aspnetcore/blob/master/src/Identity/Core/src/SignInManager.cs#L552
         // replaced in order to use a custom auth type and to implement logging/events
@@ -336,6 +395,17 @@ public abstract class UmbracoSignInManager<TUser> : SignInManager<TUser>
             }
 
             await UserManager.UpdateAsync(user);
+
+            if (_securitySettings.AllowConcurrentLogins is false)
+            {
+
+                if (_requestCache.Get("SecurityStampUpdated") is null)
+                {
+                    await UserManager.UpdateSecurityStampAsync(user);
+                    _requestCache.Set("SecurityStampUpdated", true);
+                }
+
+            }
 
             Logger.LogInformation("User: {UserName} logged in from IP address {IpAddress}", username, Context.Connection.RemoteIpAddress);
         }

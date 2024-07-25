@@ -24,12 +24,15 @@ public class WebProfiler : IProfiler
     private int _first;
     private MiniProfiler? _startupProfiler;
 
+    /// <inheritdoc />
+    public bool IsEnabled => true;
+
     public IDisposable? Step(string name) => MiniProfiler.Current?.Step(name);
 
     public void Start()
     {
         MiniProfiler.StartNew();
-        MiniProfilerContext.Value = MiniProfiler.Current;
+        MiniProfilerContext.Value = MiniProfiler.Current!;
     }
 
     public void Stop(bool discardResults = false) => MiniProfilerContext.Value?.Stop(discardResults);
@@ -84,7 +87,7 @@ public class WebProfiler : IProfiler
 
                 if (cookieValue is not null)
                 {
-                    AddSubProfiler(MiniProfiler.FromJson(cookieValue));
+                    AddSubProfiler(MiniProfiler.FromJson(cookieValue)!);
                 }
 
                 // If it is a redirect to a relative path (local redirect)

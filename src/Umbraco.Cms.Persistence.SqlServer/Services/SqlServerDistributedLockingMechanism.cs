@@ -17,8 +17,8 @@ namespace Umbraco.Cms.Persistence.SqlServer.Services;
 /// </summary>
 public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
 {
-    private readonly IOptionsMonitor<ConnectionStrings> _connectionStrings;
-    private readonly IOptionsMonitor<GlobalSettings> _globalSettings;
+    private ConnectionStrings _connectionStrings;
+    private GlobalSettings _globalSettings;
     private readonly ILogger<SqlServerDistributedLockingMechanism> _logger;
     private readonly Lazy<IScopeAccessor> _scopeAccessor; // Hooray it's a circular dependency.
 
@@ -33,25 +33,28 @@ public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
     {
         _logger = logger;
         _scopeAccessor = scopeAccessor;
-        _globalSettings = globalSettings;
-        _connectionStrings = connectionStrings;
+        _globalSettings = globalSettings.CurrentValue;
+        _connectionStrings = connectionStrings.CurrentValue;
+        globalSettings.OnChange(x => _globalSettings = x);
+        connectionStrings.OnChange(x => _connectionStrings = x);
+
     }
 
     /// <inheritdoc />
-    public bool Enabled => _connectionStrings.CurrentValue.IsConnectionStringConfigured() &&
-                           string.Equals(_connectionStrings.CurrentValue.ProviderName,Constants.ProviderName, StringComparison.InvariantCultureIgnoreCase);
+    public bool Enabled => _connectionStrings.IsConnectionStringConfigured() &&
+                           string.Equals(_connectionStrings.ProviderName,Constants.ProviderName, StringComparison.InvariantCultureIgnoreCase);
 
     /// <inheritdoc />
     public IDistributedLock ReadLock(int lockId, TimeSpan? obtainLockTimeout = null)
     {
-        obtainLockTimeout ??= _globalSettings.CurrentValue.DistributedLockingReadLockDefaultTimeout;
+        obtainLockTimeout ??= _globalSettings.DistributedLockingReadLockDefaultTimeout;
         return new SqlServerDistributedLock(this, lockId, DistributedLockType.ReadLock, obtainLockTimeout.Value);
     }
 
     /// <inheritdoc />
     public IDistributedLock WriteLock(int lockId, TimeSpan? obtainLockTimeout = null)
     {
-        obtainLockTimeout ??= _globalSettings.CurrentValue.DistributedLockingWriteLockDefaultTimeout;
+        obtainLockTimeout ??= _globalSettings.DistributedLockingWriteLockDefaultTimeout;
         return new SqlServerDistributedLock(this, lockId, DistributedLockType.WriteLock, obtainLockTimeout.Value);
     }
 
@@ -70,8 +73,10 @@ public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
             _timeout = timeout;
             LockId = lockId;
             LockType = lockType;
-
-            _parent._logger.LogDebug("Requesting {lockType} for id {id}", LockType, LockId);
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _parent._logger.LogDebug("Requesting {lockType} for id {id}", LockType, LockId);
+            }
 
             try
             {
@@ -96,17 +101,24 @@ public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
 
                 throw new DistributedWriteLockTimeoutException(LockId);
             }
-
-            _parent._logger.LogDebug("Acquired {lockType} for id {id}", LockType, LockId);
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                _parent._logger.LogDebug("Acquired {lockType} for id {id}", LockType, LockId);
+            }
         }
 
         public int LockId { get; }
 
         public DistributedLockType LockType { get; }
 
-        public void Dispose() =>
-            // Mostly no op, cleaned up by completing transaction in scope.
-            _parent._logger.LogDebug("Dropped {lockType} for id {id}", LockType, LockId);
+        public void Dispose()
+        {
+            if (_parent._logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+            {
+                // Mostly no op, cleaned up by completing transaction in scope.
+                _parent._logger.LogDebug("Dropped {lockType} for id {id}", LockType, LockId);
+            }
+        }
 
         public override string ToString()
             => $"SqlServerDistributedLock({LockId}, {LockType}";
@@ -134,9 +146,10 @@ public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
 
             const string query = "SELECT value FROM umbracoLock WITH (REPEATABLEREAD)  WHERE id=@id";
 
-            db.Execute("SET LOCK_TIMEOUT " + _timeout.TotalMilliseconds + ";");
+            var lockTimeoutQuery = $"SET LOCK_TIMEOUT {_timeout.TotalMilliseconds}";
 
-            var i = db.ExecuteScalar<int?>(query, new { id = LockId });
+            // execute the lock timeout query and the actual query in a single server roundtrip
+            var i = db.ExecuteScalar<int?>($"{lockTimeoutQuery};{query}", new { id = LockId });
 
             if (i == null)
             {
@@ -169,9 +182,10 @@ public class SqlServerDistributedLockingMechanism : IDistributedLockingMechanism
             const string query =
                 @"UPDATE umbracoLock WITH (REPEATABLEREAD) SET value = (CASE WHEN (value=1) THEN -1 ELSE 1 END) WHERE id=@id";
 
-            db.Execute("SET LOCK_TIMEOUT " + _timeout.TotalMilliseconds + ";");
+            var lockTimeoutQuery = $"SET LOCK_TIMEOUT {_timeout.TotalMilliseconds}";
 
-            var i = db.Execute(query, new { id = LockId });
+            // execute the lock timeout query and the actual query in a single server roundtrip
+            var i = db.Execute($"{lockTimeoutQuery};{query}", new { id = LockId });
 
             if (i == 0)
             {

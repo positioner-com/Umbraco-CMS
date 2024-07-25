@@ -17,7 +17,7 @@ public class MediaCache : PublishedCacheBase, IPublishedMediaCache, INavigableDa
     #region Constructors
 
     public MediaCache(bool previewDefault, ContentStore.Snapshot snapshot, IVariationContextAccessor variationContextAccessor)
-        : base(previewDefault)
+        : base(variationContextAccessor, previewDefault)
     {
         _snapshot = snapshot;
         _variationContextAccessor = variationContextAccessor;
@@ -95,6 +95,7 @@ public class MediaCache : PublishedCacheBase, IPublishedMediaCache, INavigableDa
 
     #region XPath
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public override IPublishedContent? GetSingleByXPath(bool preview, string xpath, XPathVariable[] vars)
     {
         XPathNavigator navigator = CreateNavigator(preview);
@@ -102,6 +103,7 @@ public class MediaCache : PublishedCacheBase, IPublishedMediaCache, INavigableDa
         return GetSingleByXPath(iterator);
     }
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public override IPublishedContent? GetSingleByXPath(bool preview, XPathExpression xpath, XPathVariable[] vars)
     {
         XPathNavigator navigator = CreateNavigator(preview);
@@ -109,6 +111,7 @@ public class MediaCache : PublishedCacheBase, IPublishedMediaCache, INavigableDa
         return GetSingleByXPath(iterator);
     }
 
+    [Obsolete("The current implementation of this method is suboptimal and will be removed entirely in a future version. Scheduled for removal in v14")]
     public override IEnumerable<IPublishedContent> GetByXPath(bool preview, string xpath, XPathVariable[] vars)
     {
         XPathNavigator navigator = CreateNavigator(preview);

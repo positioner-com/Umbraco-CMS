@@ -15,7 +15,10 @@ public class LogProfiler : IProfiler
     /// <inheritdoc />
     public IDisposable Step(string name)
     {
-        _logger.LogDebug("Begin: {ProfileName}", name);
+        if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
+        {
+            _logger.LogDebug("Begin: {ProfileName}", name);
+        }
         return new LightDisposableTimer(duration =>
             _logger.LogInformation("End {ProfileName} ({ProfileDuration}ms)", name, duration));
     }
@@ -31,6 +34,9 @@ public class LogProfiler : IProfiler
     {
         // the log never stops
     }
+
+    /// <inheritdoc />
+    public bool IsEnabled => _logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
 
     // a lightweight disposable timer
     private class LightDisposableTimer : DisposableObjectSlim
