@@ -4,7 +4,9 @@
     <Title>Umbraco CMS - Infrastructure</Title>
     <Description>Contains the infrastructure assembly needed to run Umbraco CMS.</Description>
     <RootNamespace>Umbraco.Cms.Infrastructure</RootNamespace>
-    <Version>13.4.100</Version>
+    <Version>13.9.200</Version>
+    <AssemblyVersion>13.9.200</AssemblyVersion>
+    <FileVersion>13.9.200</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -45,10 +47,6 @@
 
     <!-- Both Dazinator.Extensions.FileProviders and MiniProfiler.AspNetCore.Mvc bring in a vulnerable version of System.Text.RegularExpressions -->
     <PackageReference Include="System.Text.RegularExpressions" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Umbraco.Core\Umbraco.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
