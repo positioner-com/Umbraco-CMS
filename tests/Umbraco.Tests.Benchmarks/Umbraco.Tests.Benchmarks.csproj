@@ -10,6 +10,7 @@
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="Moq"  />
+    <PackageReference Remove="Nerdbank.GitVersioning" />
   </ItemGroup>
 
   <ItemGroup>
