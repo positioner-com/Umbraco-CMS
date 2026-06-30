@@ -4,9 +4,9 @@
     <Title>Umbraco CMS - Infrastructure</Title>
     <Description>Contains the infrastructure assembly needed to run Umbraco CMS.</Description>
     <RootNamespace>Umbraco.Cms.Infrastructure</RootNamespace>
-    <Version>13.11.102</Version>
-    <AssemblyVersion>13.11.102</AssemblyVersion>
-    <FileVersion>13.11.102</FileVersion>
+    <Version>13.14.001</Version>
+    <AssemblyVersion>13.14.001</AssemblyVersion>
+    <FileVersion>13.14.001</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
